@@ -961,6 +961,7 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
   const [filename, setFilename] = useState('');
   const [rawRows, setRawRows] = useState([]); // parsed rows from CSV
   const [classifiedRows, setClassifiedRows] = useState([]);
+  const [inactiveCount, setInactiveCount] = useState(0); // anúncios arquivados/inativos sem gasto que foram ignorados
   const [destinationMonth, setDestinationMonth] = useState(targetMonth);
   const [mergeMode, setMergeMode] = useState('replace');
   const [error, setError] = useState('');
@@ -978,7 +979,7 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
         const headers = rows[0];
         const cols = detectMetaColumns(headers);
         const dataRows = rows.slice(1);
-        const parsed = dataRows.map((row) => ({
+        const allParsed = dataRows.map((row) => ({
           audienceName: cols.audienceName >= 0 ? (row[cols.audienceName] || '').trim() : '',
           campaignName: cols.campaignName >= 0 ? (row[cols.campaignName] || '').trim() : '',
           spent: cols.spent >= 0 ? parseNum(row[cols.spent]) : 0,
@@ -993,6 +994,16 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
           _rawRow: row,
         })).filter((r) => r.audienceName || r.campaignName || r.spent > 0);
 
+        // ━━━ FILTRO DE RUÍDO ━━━
+        // Anúncios arquivados/inativos SEM gasto vêm no CSV mas são lixo (públicos antigos que não rodaram).
+        // Filtramos antes de mostrar pro usuário pra evitar 200+ linhas "skip" no preview.
+        const isInactive = (placement) => {
+          const p = (placement || '').toLowerCase();
+          return p === 'archived' || p === 'inactive' || p === 'not_delivering';
+        };
+        const inactiveIgnored = allParsed.filter((r) => isInactive(r.placement) && r.spent === 0 && r.results === 0);
+        const parsed = allParsed.filter((r) => !(isInactive(r.placement) && r.spent === 0 && r.results === 0));
+
         if (parsed.length === 0) {
           setError('Nenhuma linha válida encontrada. Verifique se o CSV foi exportado com Detalhamento por Públicos e tem as colunas necessárias (Valor gasto, Resultados, Conjunto de Anúncios).');
           return;
@@ -1006,6 +1017,7 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
         });
         setRawRows(parsed);
         setClassifiedRows(classified);
+        setInactiveCount(inactiveIgnored.length);
         setStage('preview');
       } catch (err) {
         setError('Falha ao processar o arquivo: ' + err.message);
@@ -1146,11 +1158,17 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
                     <div className="ls-csv-summary-value">{fmtBRL0(stats.totalSpent)}</div>
                   </div>
                 </div>
+                {inactiveCount > 0 && (
+                  <div style={{ marginTop: 12, padding: '8px 14px', background: 'rgba(155,147,127,0.08)', border: `1px solid ${BRAND.borderSoft}`, borderRadius: 3, fontSize: 11, color: BRAND.textMuted, fontStyle: 'italic' }}>
+                    <Check size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle', color: BRAND.positive}}/>
+                    <strong>{inactiveCount}</strong> {inactiveCount === 1 ? 'público arquivado/inativo sem gasto foi automaticamente filtrado' : 'públicos arquivados/inativos sem gasto foram automaticamente filtrados'} do CSV (não geraram dados no período)
+                  </div>
+                )}
               </section>
 
               <section className="ls-edit-section">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 className="ls-edit-title" style={{ margin: 0 }}><span className="ls-edit-num">3</span> Linhas detectadas</h3>
+                  <h3 className="ls-edit-title" style={{ margin: 0 }}>Linhas detectadas</h3>
                   <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.textMuted }}>clique nas tags pra reclassificar</div>
                 </div>
                 <table className="ls-csv-table">
@@ -1218,7 +1236,7 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
 };
 
 // ============ EDIT MODAL ============
-const EditModal = ({ monthKey, data, onSave, onClose }) => {
+const EditModal = ({ monthKey, data, onSave, onClose, onDelete, hasData }) => {
   const [draft, setDraft] = useState(JSON.parse(JSON.stringify(data || emptyMonth())));
   const updateField = (path, value) => {
     setDraft((d) => {
@@ -1308,6 +1326,20 @@ const EditModal = ({ monthKey, data, onSave, onClose }) => {
           </section>
         </div>
         <div className="ls-modal-foot">
+          {hasData && onDelete && (
+            <button
+              className="ls-btn-danger"
+              onClick={() => {
+                if (window.confirm(`Limpar todos os dados de ${monthLabel(monthKey)}?\n\nIsso apaga TUDO desse mês: investimento, mensagens, custos, lista de públicos, indicadores do Insights, etc. Não pode ser desfeito.\n\nÚtil se você importou o CSV errado e quer recomeçar.`)) {
+                  onDelete();
+                }
+              }}
+              style={{ marginRight: 'auto' }}
+              title="Apaga todos os dados deste mês (útil se importou CSV errado)"
+            >
+              <Trash2 size={12}/> Limpar mês
+            </button>
+          )}
           <button className="ls-btn-ghost" onClick={onClose}>Cancelar</button>
           <button className="ls-btn-primary" onClick={() => onSave(monthKey, draft)}>Salvar · {monthShort(monthKey)}</button>
         </div>
@@ -2198,6 +2230,8 @@ const App = () => {
 
         /* BUTTONS */
         .ls-btn-primary { background: ${BRAND.gold}; color: ${BRAND.bg}; border: none; padding: 11px 22px; font-family: 'Barlow', sans-serif; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .ls-btn-danger { background: transparent; color: ${BRAND.negative}; border: 1px solid rgba(201,112,112,0.4); padding: 11px 18px; font-family: 'Barlow', sans-serif; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .ls-btn-danger:hover { background: rgba(201,112,112,0.12); border-color: ${BRAND.negative}; }
         .ls-btn-primary:hover:not(:disabled) { background: ${BRAND.goldSoft}; }
         .ls-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
         .ls-btn-ghost { background: none; color: ${BRAND.textMuted}; border: 1px solid ${BRAND.border}; padding: 11px 22px; font-family: 'Barlow', sans-serif; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
@@ -3121,7 +3155,7 @@ const App = () => {
         </footer>
       </div>
 
-      {editingMonth && <EditModal monthKey={editingMonth} data={months[editingMonth] || emptyMonth()} onSave={handleSaveMonth} onClose={() => setEditingMonth(null)} />}
+      {editingMonth && <EditModal monthKey={editingMonth} data={months[editingMonth] || emptyMonth()} onSave={handleSaveMonth} onClose={() => setEditingMonth(null)} onDelete={() => { handleDeleteMonth(editingMonth); setEditingMonth(null); }} hasData={!!months[editingMonth]} />}
       {showGoals && <GoalsModal goals={goals} onSave={handleSaveGoals} onClose={() => setShowGoals(false)} />}
       {showImport && <ImportCSVModal targetMonth={currentMonth} currentMonths={months} contacts={goals.contacts || []} onSave={handleImportCSV} onClose={() => setShowImport(false)} />}
     </div>
