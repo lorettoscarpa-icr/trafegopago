@@ -248,10 +248,10 @@ const defaultGoals = () => ({
   // alguma das suas keywords. O sistema detecta automaticamente — você não precisa cadastrar
   // público por público. Adicione variações de typo se aparecerem (ex.: JHENIFER ao lado de JHENNIFER).
   contacts: [
-    { name: 'Jhennifer', keywords: ['JHENNIFER', 'JHENIFER', 'JENIFER'], phones: ['62 8168-8990'] },
-    { name: 'Ialey',     keywords: ['IALEY', 'IALI'],                    phones: ['62 8172-8039'] },
-    { name: 'Michelly',  keywords: ['MICHELLY', 'MICHELY', 'MICHELE'],   phones: ['62 8194-0350'] },
-    { name: 'Natália',   keywords: ['NATALIA', 'NATÁLIA'],               phones: ['62 8200-1112'] },
+    { name: 'Jhennifer', keywords: ['JHENNIFER', 'JHENIFER', 'JENIFER', 'JENIFFER'],     phones: ['62 8168-8990'] },
+    { name: 'Ialey',     keywords: ['IALEY', 'IALI'],                                    phones: ['62 8172-8039'] },
+    { name: 'Michelly',  keywords: ['MICHELLY', 'MICHELY', 'MICHELE', 'MICHELLE'],       phones: ['62 8194-0350'] },
+    { name: 'Natália',   keywords: ['NATALIA', 'NATÁLIA', 'NOVA'],                       phones: ['62 8200-1112'] },
   ],
 });
 
@@ -269,6 +269,7 @@ const computeMetrics = (m) => {
   const perfilResults = (m.perfilTraffic.campaigns || []).reduce((s, c) => s + (Number(c.results) || 0), 0);
   return {
     remMsgs, frioMsgs, remInv, frioInv, totalInv, remLeads, frioLeads, totalLeads, perfilInv, perfilResults,
+    original: m,
     avgCostMsgRem: remMsgs > 0 ? remInv / remMsgs : 0,
     avgCostMsgFrio: frioMsgs > 0 ? frioInv / frioMsgs : 0,
     avgCostLeadRem: remLeads > 0 ? remInv / remLeads : 0,
@@ -356,7 +357,60 @@ const recommendRedistribution = (curM) => {
   const currentLeadsFromMove = moveAmount / expensiveCPL;
   const newLeadsFromMove = moveAmount / cheaper;
   const extraLeads = Math.round(newLeadsFromMove - currentLeadsFromMove);
-  return { fromChannel: expensiveChannel, toChannel: cheaperChannel, amount: moveAmount, movePct, extraLeads, efficiency, cheaperCPL: cheaper, expensiveCPL };
+
+  // ━━━ ESPECIFICAÇÃO POR PÚBLICO ━━━
+  // Públicos pra REDUZIR: piores do canal caro (custo/msg alto + gasto significativo)
+  // Públicos pra AUMENTAR: melhores do canal barato (custo/msg baixo + ainda com volume)
+  const expensiveKey = expensiveChannel === 'Remarketing' ? 'remarketing' : 'frio';
+  const cheaperKey = cheaperChannel === 'Remarketing' ? 'remarketing' : 'frio';
+  const expensiveAuds = ((curM.original && curM.original[expensiveKey].audiences) || []).filter((a) => a.name && a.messages > 0 && a.costPerMsg > 0);
+  const cheaperAuds = ((curM.original && curM.original[cheaperKey].audiences) || []).filter((a) => a.name && a.messages > 0 && a.costPerMsg > 0);
+
+  // REDUZIR: ordena por custo/msg DESC (pior primeiro), pega 3 com gasto relevante (>5% do canal caro)
+  const reduceAuds = expensiveAuds
+    .map((a) => ({ ...a, spent: a.messages * a.costPerMsg }))
+    .filter((a) => a.spent >= expensiveInv * 0.03) // só públicos com pelo menos 3% do canal
+    .sort((x, y) => y.costPerMsg - x.costPerMsg)
+    .slice(0, 3);
+
+  // AUMENTAR: ordena por custo/msg ASC (melhor primeiro), pega 3 com volume mínimo
+  const increaseAuds = cheaperAuds
+    .map((a) => ({ ...a, spent: a.messages * a.costPerMsg }))
+    .filter((a) => a.messages >= 15) // tem volume suficiente pra suportar mais verba
+    .sort((x, y) => x.costPerMsg - y.costPerMsg)
+    .slice(0, 3);
+
+  // Distribuição do moveAmount: tira proporcional ao gasto dos reduceAuds, coloca proporcional ao volume dos increaseAuds
+  const totalReduceSpent = reduceAuds.reduce((s, a) => s + a.spent, 0);
+  const reduceWithAmount = reduceAuds.map((a) => ({
+    name: a.name,
+    currentSpent: a.spent,
+    currentCostPerMsg: a.costPerMsg,
+    messages: a.messages,
+    moveAmount: totalReduceSpent > 0 ? (a.spent / totalReduceSpent) * moveAmount : 0,
+  }));
+
+  const totalIncreaseMsgs = increaseAuds.reduce((s, a) => s + a.messages, 0);
+  const increaseWithAmount = increaseAuds.map((a) => ({
+    name: a.name,
+    currentSpent: a.spent,
+    currentCostPerMsg: a.costPerMsg,
+    messages: a.messages,
+    moveAmount: totalIncreaseMsgs > 0 ? (a.messages / totalIncreaseMsgs) * moveAmount : 0,
+  }));
+
+  return {
+    fromChannel: expensiveChannel,
+    toChannel: cheaperChannel,
+    amount: moveAmount,
+    movePct,
+    extraLeads,
+    efficiency,
+    cheaperCPL: cheaper,
+    expensiveCPL,
+    reduceAuds: reduceWithAmount,
+    increaseAuds: increaseWithAmount,
+  };
 };
 
 // ============ ANALYTICS · SATURATION ============
@@ -693,6 +747,19 @@ const topPerformers = (curMonth) => {
   return all.sort((x, y) => x.costPerMsg - y.costPerMsg).slice(0, 5);
 };
 
+// Inverso: os 5 mais CAROS (custo/msg maior)
+const bottomPerformers = (curMonth) => {
+  if (!curMonth) return [];
+  const all = [];
+  for (const channel of ['remarketing', 'frio']) {
+    for (const a of curMonth[channel].audiences || []) {
+      if (!a.name || !a.messages || !a.costPerMsg) continue;
+      all.push({ name: a.name, channel, costPerMsg: a.costPerMsg, messages: a.messages, spent: a.messages * a.costPerMsg });
+    }
+  }
+  return all.sort((x, y) => y.costPerMsg - x.costPerMsg).slice(0, 5);
+};
+
 // ============ ANALYTICS · CAMPANHAS FEED ============
 const topCampaigns = (curMonth) => {
   if (!curMonth) return [];
@@ -700,6 +767,16 @@ const topCampaigns = (curMonth) => {
     .filter((c) => c.name && c.cost > 0 && c.results > 0)
     .map((c) => ({ name: c.name, cost: c.cost, results: c.results, costPerResult: c.cost / c.results }))
     .sort((a, b) => a.costPerResult - b.costPerResult)
+    .slice(0, 5);
+};
+
+// Inverso: as 5 campanhas MAIS CARAS (custo/resultado maior)
+const bottomCampaigns = (curMonth) => {
+  if (!curMonth) return [];
+  return (curMonth.perfilTraffic.campaigns || [])
+    .filter((c) => c.name && c.cost > 0 && c.results > 0)
+    .map((c) => ({ name: c.name, cost: c.cost, results: c.results, costPerResult: c.cost / c.results }))
+    .sort((a, b) => b.costPerResult - a.costPerResult)
     .slice(0, 5);
 };
 
@@ -1351,17 +1428,67 @@ const EditModal = ({ monthKey, data, onSave, onClose, onDelete, hasData }) => {
 // ============ DRILL TABLE ============
 const DrillTable = ({ items = [], kind = 'audience' }) => {
   const filtered = items.filter((it) => it.name || (kind === 'audience' ? it.messages > 0 : it.cost > 0 || it.results > 0));
+  // Sort state: 'msg-desc' (default), 'cost-desc', 'cost-asc', 'total-desc', 'name-asc' etc.
+  const defaultSort = kind === 'audience' ? 'msg-desc' : 'cost-desc';
+  const [sort, setSort] = useState(defaultSort);
+
   if (filtered.length === 0) return <div className="ls-drill-empty">Nenhum {kind === 'audience' ? 'público' : 'campanha'} lançado neste mês</div>;
+
+  const toggleSort = (col, defaultDir = 'desc') => {
+    const [curCol, curDir] = sort.split('-');
+    if (curCol === col) {
+      setSort(`${col}-${curDir === 'desc' ? 'asc' : 'desc'}`);
+    } else {
+      setSort(`${col}-${defaultDir}`);
+    }
+  };
+
+  const sorted = [...filtered].sort((a, b) => {
+    const [col, dir] = sort.split('-');
+    const mul = dir === 'desc' ? -1 : 1;
+    if (kind === 'audience') {
+      if (col === 'name')  return mul * String(a.name || '').localeCompare(String(b.name || ''));
+      if (col === 'msg')   return mul * ((Number(a.messages) || 0) - (Number(b.messages) || 0));
+      if (col === 'cost')  return mul * ((Number(a.costPerMsg) || 0) - (Number(b.costPerMsg) || 0));
+      if (col === 'total') return mul * (((Number(a.messages)||0)*(Number(a.costPerMsg)||0)) - ((Number(b.messages)||0)*(Number(b.costPerMsg)||0)));
+    } else {
+      if (col === 'name')   return mul * String(a.name || '').localeCompare(String(b.name || ''));
+      if (col === 'cost')   return mul * ((Number(a.cost) || 0) - (Number(b.cost) || 0));
+      if (col === 'result') return mul * ((Number(a.results) || 0) - (Number(b.results) || 0));
+      if (col === 'cpr') {
+        const ar = Number(a.results) > 0 ? Number(a.cost) / Number(a.results) : Infinity;
+        const br = Number(b.results) > 0 ? Number(b.cost) / Number(b.results) : Infinity;
+        return mul * (ar - br);
+      }
+    }
+    return 0;
+  });
+
+  const arrow = (col) => {
+    const [curCol, curDir] = sort.split('-');
+    if (curCol !== col) return <span className="ls-sort-arrow ls-sort-inactive">⇅</span>;
+    return <span className="ls-sort-arrow ls-sort-active">{curDir === 'desc' ? '↓' : '↑'}</span>;
+  };
+
   return (
-    <table className="ls-drill-table">
+    <table className="ls-drill-table ls-drill-table-sortable">
       <thead>
         <tr>
-          <th>{kind === 'audience' ? 'Público' : 'Campanha'}</th>
-          {kind === 'audience' ? <><th>Msg</th><th>R$ / msg</th><th>Total</th></> : <><th>Custo</th><th>Result.</th><th>R$ / res.</th></>}
+          {kind === 'audience' ? <>
+            <th onClick={() => toggleSort('name', 'asc')} className="ls-th-sortable">Público {arrow('name')}</th>
+            <th onClick={() => toggleSort('msg', 'desc')} className="ls-th-sortable">Msg {arrow('msg')}</th>
+            <th onClick={() => toggleSort('cost', 'desc')} className="ls-th-sortable">R$ / msg {arrow('cost')}</th>
+            <th onClick={() => toggleSort('total', 'desc')} className="ls-th-sortable">Total {arrow('total')}</th>
+          </> : <>
+            <th onClick={() => toggleSort('name', 'asc')} className="ls-th-sortable">Campanha {arrow('name')}</th>
+            <th onClick={() => toggleSort('cost', 'desc')} className="ls-th-sortable">Custo {arrow('cost')}</th>
+            <th onClick={() => toggleSort('result', 'desc')} className="ls-th-sortable">Result. {arrow('result')}</th>
+            <th onClick={() => toggleSort('cpr', 'desc')} className="ls-th-sortable">R$ / res. {arrow('cpr')}</th>
+          </>}
         </tr>
       </thead>
       <tbody>
-        {filtered.map((it, i) => (
+        {sorted.map((it, i) => (
           <tr key={i}>
             <td>{it.name || `(sem nome) ${i+1}`}</td>
             {kind === 'audience' ? <>
@@ -1439,143 +1566,6 @@ const buildSummaryText = (curMonth, prevMonth, curM, prevM, goals, forecast, rec
 };
 
 // ============ DEMO DATA GENERATOR — para testes ============
-const generateDemoData = () => {
-  // Sazonalidade do varejo de calçado masculino em Goiânia
-  // Picos: Agosto (Dia dos Pais), Novembro (BF + Natal), Dezembro (Natal + formaturas)
-  // Vácuos: Janeiro (pós-festas), Junho/Julho (entre-estações)
-  const seasonality = {
-    '01': 0.55, '02': 0.78, '03': 0.95, '04': 1.00, '05': 1.05, '06': 0.72,
-    '07': 0.68, '08': 1.65, '09': 0.92, '10': 1.05, '11': 1.50, '12': 1.40,
-  };
-  const yearGrowth = { '2025': 0.85, '2026': 1.00 };
-
-  const months = [
-    '2025-01','2025-02','2025-03','2025-04','2025-05','2025-06',
-    '2025-07','2025-08','2025-09','2025-10','2025-11','2025-12',
-    '2026-01','2026-02','2026-03','2026-04',
-  ];
-
-  // Nomes que seguem o padrão real dos Conjuntos do Meta Ads da Loretto:
-  // o nome da vendedora aparece no fim, e o sistema detecta automaticamente.
-  const remAudNames = [
-    '00 - ENGAJAMENT O7D - JHENIFER',     // Jhennifer
-    '01 - ENGAJAMENT 30D - JHENIFER',     // Jhennifer
-    '02 - ENGAJAMENT 60D - IALEY',        // Ialey
-    '03 - ENGAJAMENT 90D - MICHELLY',     // Michelly
-  ];
-  const frioAudNames = [
-    '02 - COMPORTAMENTO JHENNIFER',       // Jhennifer
-    '02 - INTERESSES IALEY',              // Ialey
-    '02 - PROFISSOES MICHELLY',           // Michelly
-    '02 - MABERTO MICHELLY',              // Michelly
-    '02 - LOOKALIKE IALEY',               // Ialey
-    '00 - INTERESSES SAPATOS',            // sem vendedora — vai p/ "(sem vendedora)"
-  ];
-
-  // PRNG determinístico — dados consistentes a cada carregamento
-  let seed = 42;
-  const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
-  const wiggle = (range = 0.1) => 1 + (rand() - 0.5) * range * 2;
-
-  const result = {};
-  // Distribuição entre os 4 públicos de Remarketing: Jhennifer leva o maior volume (0-15 é o mais quente)
-  const remShares = [0.35, 0.25, 0.22, 0.18];
-  // Distribuição entre os 6 públicos de Frio
-  const frioShares = [0.22, 0.18, 0.16, 0.14, 0.16, 0.14];
-
-  for (const key of months) {
-    const [y, m] = key.split('-');
-    const factor = seasonality[m] * yearGrowth[y];
-
-    const totalInv = 8000 * factor * wiggle(0.12);
-    const remInv = Math.round(totalInv * (0.48 + rand() * 0.06));
-    const frioInv = Math.round(totalInv * (0.32 + rand() * 0.06));
-    const perfilInv = Math.round(Math.max(400, totalInv - remInv - frioInv));
-
-    const remCostMsgBase = 0.30 + rand() * 0.08;
-    const frioCostMsgBase = 0.58 + rand() * 0.16;
-
-    const remCostLead = 6.5 + rand() * 2.5;
-    const frioCostLead = 21 + rand() * 6;
-
-    const remAud = remAudNames.map((name, i) => {
-      const inv = remInv * remShares[i];
-      const cost = remCostMsgBase * (0.88 + rand() * 0.26);
-      return { name, messages: Math.round(inv / cost), costPerMsg: +cost.toFixed(4) };
-    });
-    const frioAud = frioAudNames.map((name, i) => {
-      const inv = frioInv * frioShares[i];
-      const cost = frioCostMsgBase * (0.88 + rand() * 0.26);
-      return { name, messages: Math.round(inv / cost), costPerMsg: +cost.toFixed(4) };
-    });
-
-    const remLeads = Math.round(remInv / remCostLead);
-    const frioLeads = Math.round(frioInv / frioCostLead);
-
-    const campaigns = [
-      { name: 'Reels Boost', cost: Math.round(perfilInv * 0.50), results: Math.round(perfilInv * 0.50 / (1.2 + rand() * 0.5)) },
-      { name: 'Tráfego Catálogo', cost: Math.round(perfilInv * 0.30), results: Math.round(perfilInv * 0.30 / (1.6 + rand() * 0.6)) },
-      { name: 'Awareness Marca', cost: Math.round(perfilInv * 0.20), results: Math.round(perfilInv * 0.20 / (2.5 + rand() * 0.8)) },
-    ];
-
-    result[key] = {
-      remarketing: { investment: remInv, audiences: remAud, leads: remLeads },
-      frio: { investment: frioInv, audiences: frioAud, leads: frioLeads },
-      perfilTraffic: { campaigns },
-      perfilNumbers: {
-        // Visualizações (antes "Impressões" no Meta — renomeado em 2024)
-        impressions: Math.round(45000 * factor * wiggle(0.18)),
-        // Alcance — geralmente ~1/4 das visualizações (frequência ~4x)
-        reach: Math.round(11500 * factor * wiggle(0.16)),
-        // Interações com conteúdo — likes/comments/shares/saves combinados
-        interactions: Math.round(1800 * factor * wiggle(0.22)),
-        // Cliques no link da bio + stories swipe-up
-        linkClicks: Math.round(680 * factor * wiggle(0.20)),
-        visits: Math.round(2200 * factor * wiggle(0.14)),
-        newFollowers: Math.round(220 * factor * wiggle(0.18)),
-      },
-    };
-  }
-
-  // ─── Tweaks no 2026-04 (mês atual) para o dashboard exercitar todas as análises ───
-  const apr = result['2026-04'];
-  const mar = result['2026-03'];
-
-  // [1] Saturação programada: "02 - INTERESSES IALEY" sobe ~38% no custo/msg
-  const aprTarget = apr.frio.audiences.find((a) => a.name === '02 - INTERESSES IALEY');
-  const marTarget = mar.frio.audiences.find((a) => a.name === '02 - INTERESSES IALEY');
-  if (aprTarget && marTarget) {
-    aprTarget.costPerMsg = +(marTarget.costPerMsg * 1.38).toFixed(4);
-    aprTarget.messages = Math.round((apr.frio.investment * 0.18) / aprTarget.costPerMsg);
-  }
-
-  // [2] Anomalia leve: derruba leads do Frio em abril → custo/lead Frio sobe acima da média
-  apr.frio.leads = Math.round(apr.frio.leads * 0.65);
-
-  // [3] Garante que Remarketing fique notavelmente mais eficiente que Frio (gera recomendação)
-  // Já implícito acima, mas reforçando: aumenta leads de Rem em 10%
-  apr.remarketing.leads = Math.round(apr.remarketing.leads * 1.08);
-
-  return result;
-};
-
-const demoGoals = () => ({
-  leadsMonthly: 700,
-  investmentMonthly: 8500,
-  costLeadMax: 12.00,
-  followersMonthly: 280,
-  paresAnuais: 15000,
-  allocRemarketing: 50,
-  allocFrio: 35,
-  allocPerfil: 15,
-  contacts: [
-    { name: 'Jhennifer', keywords: ['JHENNIFER', 'JHENIFER', 'JENIFER'], phones: ['62 8168-8990'] },
-    { name: 'Ialey',     keywords: ['IALEY', 'IALI'],                    phones: ['62 8172-8039'] },
-    { name: 'Michelly',  keywords: ['MICHELLY', 'MICHELY', 'MICHELE'],   phones: ['62 8194-0350'] },
-    { name: 'Natália',   keywords: ['NATALIA', 'NATÁLIA'],               phones: ['62 8200-1112'] },
-  ],
-});
-
 // ============ MAIN APP ============
 // ============ PERFIL (sem auth — apenas identificação visual) ============
 const PROFILES = [
@@ -1654,7 +1644,7 @@ const App = () => {
         if (r?.value) {
           const p = JSON.parse(r.value);
           if (p.months) setMonths(p.months);
-          if (p.goals) setGoals({ ...defaultGoals(), ...p.goals });
+          if (p.goals) setGoals({ ...defaultGoals(), ...p.goals, contacts: defaultGoals().contacts });
           if (p.currentMonth) setCurrentMonth(p.currentMonth);
           if (p.compareMonth) setCompareMonth(p.compareMonth);
         }
@@ -1676,7 +1666,7 @@ const App = () => {
           if (snap.exists) {
             const data = snap.data();
             if (data.months) setMonths(data.months);
-            if (data.goals) setGoals({ ...defaultGoals(), ...data.goals });
+            if (data.goals) setGoals({ ...defaultGoals(), ...data.goals, contacts: defaultGoals().contacts });
             if (data.currentMonth) setCurrentMonth(data.currentMonth);
             if (data.compareMonth) setCompareMonth(data.compareMonth);
             if (data.updatedBy) setLastSyncBy(data.updatedBy);
@@ -1740,18 +1730,6 @@ const App = () => {
   const handleDeleteMonth = (key) => {
     if (!confirm(`Excluir todos os dados de ${monthLabel(key)}?`)) return;
     setMonths((m) => { const n = { ...m }; delete n[key]; return n; });
-  };
-  const handleLoadDemo = () => {
-    const hasData = Object.keys(months).length > 0;
-    const msg = hasData
-      ? 'Substituir TODOS os dados e metas atuais por dados de teste (16 meses de 2025-01 a 2026-04)?'
-      : 'Carregar dados de teste? (16 meses de 2025-01 a 2026-04, com sazonalidade do varejo de calçado)';
-    if (!confirm(msg)) return;
-    setMonths(generateDemoData());
-    setGoals(demoGoals());
-    setCurrentMonth('2026-04');
-    setCompareMonth('2026-03');
-    setView('dashboard');
   };
   const handleClearAll = () => {
     if (!confirm('Apagar TODOS os dados, metas e configurações? Esta ação não pode ser desfeita.')) return;
@@ -1828,7 +1806,9 @@ const App = () => {
   const saturated = useMemo(() => detectSaturation(curData, prevData), [curData, prevData]);
   const pareto = useMemo(() => paretoAudiences(curData), [curData]);
   const top5 = useMemo(() => topPerformers(curData), [curData]);
+  const bottom5 = useMemo(() => bottomPerformers(curData), [curData]);
   const top5Campaigns = useMemo(() => topCampaigns(curData), [curData]);
+  const bottom5Campaigns = useMemo(() => bottomCampaigns(curData), [curData]);
   const saturatedCampaigns = useMemo(() => detectCampaignSaturation(curData, prevData), [curData, prevData]);
   const paretoCamp = useMemo(() => paretoCampaigns(curData), [curData]);
   const contactPerf = useMemo(() => getContactPerformance(curData, goals.contacts || []), [curData, goals.contacts]);
@@ -1891,8 +1871,6 @@ const App = () => {
         .ls-tool-btn { background: none; border: 1px solid ${BRAND.border}; color: ${BRAND.textMuted}; padding: 8px 12px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: 'Barlow', sans-serif; transition: all 0.2s; }
         .ls-tool-btn:hover { color: ${BRAND.gold}; border-color: ${BRAND.goldDim}; }
         .ls-tool-btn.active { color: ${BRAND.gold}; border-color: ${BRAND.gold}; }
-        .ls-tool-demo { color: ${BRAND.greenSoft}; border-color: ${BRAND.greenMid}; }
-        .ls-tool-demo:hover { color: ${BRAND.cream}; background: ${BRAND.greenFog}; border-color: ${BRAND.green}; }
         .ls-tool-import { color: ${BRAND.goldSoft}; border-color: ${BRAND.goldDim}; }
         .ls-tool-import:hover { color: ${BRAND.bg}; background: ${BRAND.gold}; border-color: ${BRAND.gold}; }
         .ls-tool-profile { color: ${BRAND.goldSoft}; border-color: ${BRAND.borderSoft}; font-style: italic; font-family: 'Playfair Display', serif; font-size: 11px !important; padding: 4px 12px; }
@@ -2107,6 +2085,11 @@ const App = () => {
         .ls-drill-table td { font-family: 'DM Mono', monospace; font-size: 12px; padding: 11px 4px; color: ${BRAND.cream}; border-bottom: 1px solid ${BRAND.border}; text-align: right; }
         .ls-drill-table td:first-child { text-align: left; font-family: 'Barlow', sans-serif; color: ${BRAND.text}; }
         .ls-drill-table tr:last-child td { border-bottom: none; }
+        .ls-drill-table-sortable th.ls-th-sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
+        .ls-drill-table-sortable th.ls-th-sortable:hover { color: ${BRAND.gold}; }
+        .ls-sort-arrow { display: inline-block; margin-left: 4px; font-size: 10px; vertical-align: middle; }
+        .ls-sort-inactive { opacity: 0.25; color: ${BRAND.textDim}; }
+        .ls-sort-active { color: ${BRAND.gold}; opacity: 1; font-weight: 700; }
         .ls-drill-empty { color: ${BRAND.textDim}; font-size: 12px; padding: 18px 0; text-align: center; font-style: italic; font-family: 'Playfair Display', serif; }
 
         /* INTELLIGENCE CARDS */
@@ -2141,6 +2124,18 @@ const App = () => {
         .ls-reco-channel-name { font-family: 'Playfair Display', serif; font-style: italic; font-size: 13px; margin-bottom: 4px; }
         .ls-reco-amount { font-family: 'DM Mono', monospace; font-size: 15px; color: ${BRAND.cream}; font-weight: 500; }
         .ls-reco-arrow { color: ${BRAND.gold}; }
+
+        /* RECOMMENDATION DETAIL — específicos por público */
+        .ls-reco-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid ${BRAND.borderSoft}; }
+        .ls-reco-detail-header { display: flex; align-items: center; gap: 6px; font-size: 11px; color: ${BRAND.textMuted}; margin-bottom: 8px; line-height: 1.4; }
+        .ls-reco-detail-header strong { color: ${BRAND.cream}; font-weight: 600; }
+        .ls-reco-detail-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(212,184,94,0.08); font-size: 11px; }
+        .ls-reco-detail-row:last-child { border-bottom: none; }
+        .ls-reco-detail-name { color: ${BRAND.cream}; font-family: 'Barlow', sans-serif; font-weight: 500; }
+        .ls-reco-detail-meta { color: ${BRAND.textMuted}; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.04em; }
+        .ls-reco-detail-amount { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 12px; min-width: 80px; text-align: right; }
+        .ls-reco-amount-up { color: ${BRAND.positive}; }
+        .ls-reco-amount-down { color: ${BRAND.negative}; }
 
         /* ANOMALIES */
         .ls-anom-list { display: flex; flex-direction: column; gap: 10px; }
@@ -2375,7 +2370,6 @@ const App = () => {
               <button className="ls-tool-btn ls-tool-import" onClick={() => setShowImport(true)} title="Importar CSV do Meta Ads"><Upload size={11}/> importar</button>
               <button className="ls-tool-btn" onClick={handlePrint} title="Imprimir / Salvar PDF"><Printer size={11}/></button>
               <button className={`ls-tool-btn ${tvMode ? 'active' : ''}`} onClick={() => setTvMode(true)} title="Modo TV"><Tv size={11}/></button>
-              <button className="ls-tool-btn ls-tool-demo" onClick={handleLoadDemo} title="Carregar dados de teste (16 meses)"><FlaskConical size={11}/> demo</button>
               <button
                 className="ls-tool-btn ls-tool-profile"
                 onClick={() => handleProfileChange(currentProfile.id === 'loretto' ? PROFILES[1] : PROFILES[0])}
@@ -2419,10 +2413,9 @@ const App = () => {
                 <h3>Comece lançando os dados de {monthLabel(currentMonth)}</h3>
                 <p>O gestor de tráfego preenche os dados do mês fechado até o dia 5 do mês seguinte. Após o primeiro lançamento, todas as variações, previsões e recomendações são calculadas automaticamente.</p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button className="ls-btn-primary" onClick={() => setEditingMonth(currentMonth)}><Plus size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/> lançar dados</button>
-                  <button className="ls-btn-outline" onClick={handleLoadDemo}><FlaskConical size={11}/> carregar dados de teste</button>
+                  <button className="ls-btn-primary" onClick={() => setShowImport(true)}><Upload size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/> importar CSV do Meta Ads</button>
+                  <button className="ls-btn-outline" onClick={() => setEditingMonth(currentMonth)}><Plus size={11}/> lançar manualmente</button>
                 </div>
-                <div style={{ marginTop: 18, fontSize: 11, color: BRAND.textDim, fontFamily: 'Playfair Display', fontStyle: 'italic', letterSpacing: '0.05em' }}>Os dados de teste cobrem 16 meses com a sazonalidade do setor — apenas para demonstração.</div>
               </div>
             )}
 
@@ -2612,6 +2605,39 @@ const App = () => {
                         </div>
                         <div className="ls-intel-row"><span className="ls-intel-row-label">% da verba movida</span><span className="ls-intel-row-val">{fmtPct(recommendation.movePct)}</span></div>
                         <div className="ls-intel-row"><span className="ls-intel-row-label">Leads extras estimados</span><span className="ls-intel-row-val ls-green">+{fmtInt(recommendation.extraLeads)}</span></div>
+
+                        {/* ━━━ Detalhamento por público ━━━ */}
+                        {recommendation.reduceAuds && recommendation.reduceAuds.length > 0 && (
+                          <div className="ls-reco-detail">
+                            <div className="ls-reco-detail-header">
+                              <TrendingDown size={11} color={BRAND.negative} />
+                              <span>Reduzir nestes públicos de <strong>{recommendation.fromChannel}</strong> (custo/msg mais alto):</span>
+                            </div>
+                            {recommendation.reduceAuds.map((a, i) => (
+                              <div key={i} className="ls-reco-detail-row">
+                                <div className="ls-reco-detail-name">{a.name}</div>
+                                <div className="ls-reco-detail-meta">{fmtBRLCusto(a.currentCostPerMsg)}/msg · {fmtInt(a.messages)} msgs</div>
+                                <div className="ls-reco-detail-amount ls-reco-amount-down">−{fmtBRL0(a.moveAmount)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {recommendation.increaseAuds && recommendation.increaseAuds.length > 0 && (
+                          <div className="ls-reco-detail">
+                            <div className="ls-reco-detail-header">
+                              <TrendingUp size={11} color={BRAND.positive} />
+                              <span>Aumentar nestes públicos de <strong>{recommendation.toChannel}</strong> (custo/msg mais baixo):</span>
+                            </div>
+                            {recommendation.increaseAuds.map((a, i) => (
+                              <div key={i} className="ls-reco-detail-row">
+                                <div className="ls-reco-detail-name">{a.name}</div>
+                                <div className="ls-reco-detail-meta">{fmtBRLCusto(a.currentCostPerMsg)}/msg · {fmtInt(a.messages)} msgs</div>
+                                <div className="ls-reco-detail-amount ls-reco-amount-up">+{fmtBRL0(a.moveAmount)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="ls-intel-empty">Os dois canais estão com custos similares. Manter alocação atual.</div>
@@ -2793,9 +2819,9 @@ const App = () => {
                 </div>
 
                 <div className="ls-drill-grid">
-                  {/* TOP 5 */}
+                  {/* TOP 5 MELHORES */}
                   <div className="ls-drill-card">
-                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Públicos Mais Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.gold }}>menor custo/msg</span></div>
+                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Públicos Mais Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.positive }}>menor custo/msg</span></div>
                     {top5.length > 0 ? (
                       <div className="ls-top-list">
                         {top5.map((t, i) => (
@@ -2806,7 +2832,7 @@ const App = () => {
                               <span className={`ls-top-channel ${t.channel === 'remarketing' ? 'ls-ch-gold-text' : 'ls-ch-green-text'}`}>{t.channel === 'remarketing' ? 'remarketing' : 'frio'}</span>
                             </div>
                             <div>
-                              <div className="ls-top-metric">{fmtBRLCusto(t.costPerMsg)}</div>
+                              <div className="ls-top-metric" style={{color: BRAND.positive}}>{fmtBRLCusto(t.costPerMsg)}</div>
                               <span className="ls-top-metric-label">custo/msg</span>
                             </div>
                             <div>
@@ -2819,6 +2845,34 @@ const App = () => {
                     ) : <div className="ls-drill-empty">Adicione nomes e custos aos públicos para ver o ranking</div>}
                   </div>
 
+                  {/* TOP 5 PIORES */}
+                  <div className="ls-drill-card">
+                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Públicos Menos Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.negative }}>maior custo/msg</span></div>
+                    {bottom5.length > 0 ? (
+                      <div className="ls-top-list">
+                        {bottom5.map((t, i) => (
+                          <div key={i} className="ls-top-row">
+                            <div className="ls-top-rank" style={{color: BRAND.negative, borderColor: 'rgba(201,112,112,0.3)'}}>{['I','II','III','IV','V'][i]}</div>
+                            <div>
+                              <div className="ls-top-name">{t.name}</div>
+                              <span className={`ls-top-channel ${t.channel === 'remarketing' ? 'ls-ch-gold-text' : 'ls-ch-green-text'}`}>{t.channel === 'remarketing' ? 'remarketing' : 'frio'}</span>
+                            </div>
+                            <div>
+                              <div className="ls-top-metric" style={{color: BRAND.negative}}>{fmtBRLCusto(t.costPerMsg)}</div>
+                              <span className="ls-top-metric-label">custo/msg</span>
+                            </div>
+                            <div>
+                              <div className="ls-top-metric">{fmtInt(t.messages)}</div>
+                              <span className="ls-top-metric-label">msg</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="ls-drill-empty">Adicione nomes e custos aos públicos para ver o ranking</div>}
+                  </div>
+                </div>
+
+                <div className="ls-drill-grid">
                   {/* SATURATION */}
                   <div className="ls-drill-card">
                     <div className="ls-drill-head"><span className="ls-drill-title">Públicos em Saturação</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.warning }}>custo +25% MoM</span></div>
@@ -2981,9 +3035,9 @@ const App = () => {
                 </div>
 
                 <div className="ls-drill-grid">
-                  {/* TOP 5 CAMPANHAS */}
+                  {/* TOP 5 CAMPANHAS MELHORES */}
                   <div className="ls-drill-card">
-                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Campanhas Mais Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.gold }}>menor custo/resultado</span></div>
+                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Campanhas Mais Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.positive }}>menor custo/resultado</span></div>
                     {top5Campaigns.length > 0 ? (
                       <div className="ls-top-list">
                         {top5Campaigns.map((t, i) => (
@@ -2994,7 +3048,7 @@ const App = () => {
                               <span className="ls-top-channel ls-ch-gold-text">instagram</span>
                             </div>
                             <div>
-                              <div className="ls-top-metric">{fmtBRL(t.costPerResult)}</div>
+                              <div className="ls-top-metric" style={{color: BRAND.positive}}>{fmtBRL(t.costPerResult)}</div>
                               <span className="ls-top-metric-label">custo/result.</span>
                             </div>
                             <div>
@@ -3007,6 +3061,34 @@ const App = () => {
                     ) : <div className="ls-drill-empty">Adicione nomes e custos às campanhas para ver o ranking</div>}
                   </div>
 
+                  {/* TOP 5 CAMPANHAS PIORES */}
+                  <div className="ls-drill-card">
+                    <div className="ls-drill-head"><span className="ls-drill-title">Top 5 Campanhas Menos Eficientes</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.negative }}>maior custo/resultado</span></div>
+                    {bottom5Campaigns.length > 0 ? (
+                      <div className="ls-top-list">
+                        {bottom5Campaigns.map((t, i) => (
+                          <div key={i} className="ls-top-row">
+                            <div className="ls-top-rank" style={{color: BRAND.negative, borderColor: 'rgba(201,112,112,0.3)'}}>{['I','II','III','IV','V'][i]}</div>
+                            <div>
+                              <div className="ls-top-name">{t.name}</div>
+                              <span className="ls-top-channel ls-ch-gold-text">instagram</span>
+                            </div>
+                            <div>
+                              <div className="ls-top-metric" style={{color: BRAND.negative}}>{fmtBRL(t.costPerResult)}</div>
+                              <span className="ls-top-metric-label">custo/result.</span>
+                            </div>
+                            <div>
+                              <div className="ls-top-metric">{fmtInt(t.results)}</div>
+                              <span className="ls-top-metric-label">result.</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="ls-drill-empty">Adicione nomes e custos às campanhas para ver o ranking</div>}
+                  </div>
+                </div>
+
+                <div className="ls-drill-grid">
                   {/* SATURATION DE CAMPANHAS */}
                   <div className="ls-drill-card">
                     <div className="ls-drill-head"><span className="ls-drill-title">Campanhas em Saturação</span><span style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.warning }}>custo/result. +25% MoM</span></div>
