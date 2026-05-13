@@ -1626,6 +1626,9 @@ const App = () => {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const saveTimerRef = useRef(null);
   const ignoreNextSnapshotRef = useRef(false);
+  // Hash do último payload que ENVIAMOS pro Firestore — usado pra detectar "eco" da nossa própria escrita
+  // (Firestore pode disparar 2 snapshots: cache local + confirmação do servidor, o flag bool perde o segundo)
+  const justSavedHashRef = useRef('');
 
 
   // ========== LOAD: lê primeiro do localStorage (instantâneo), depois Firestore (autoritativo) ==========
@@ -1662,9 +1665,21 @@ const App = () => {
       // Listener em tempo real: se Caio editar de outra máquina, Loretto Scarpa vê na hora
       unsubscribe = docRef.onSnapshot(
         (snap) => {
-          if (ignoreNextSnapshotRef.current) { ignoreNextSnapshotRef.current = false; return; }
           if (snap.exists) {
             const data = snap.data();
+            // Verifica se é eco da nossa própria escrita comparando hash do payload
+            const incomingHash = JSON.stringify({
+              months: data.months || {},
+              goals: data.goals || {},
+              currentMonth: data.currentMonth || '',
+              compareMonth: data.compareMonth || '',
+            });
+            if (incomingHash === justSavedHashRef.current) {
+              // É eco da nossa última escrita — não aplica (evita "ressuscitar" deletes)
+              setCloudStatus('synced');
+              setLastSyncAt(data.updatedAt?.toMillis ? data.updatedAt.toMillis() : Date.now());
+              return;
+            }
             if (data.months) setMonths(data.months);
             if (data.goals) setGoals({ ...defaultGoals(), ...data.goals, contacts: defaultGoals().contacts });
             if (data.currentMonth) setCurrentMonth(data.currentMonth);
@@ -1701,7 +1716,8 @@ const App = () => {
     setCloudStatus('saving');
     saveTimerRef.current = setTimeout(async () => {
       try {
-        ignoreNextSnapshotRef.current = true; // evita loop ao receber o snapshot da própria escrita
+        // Salva hash do payload que estamos mandando — quando o snapshot voltar com esse mesmo conteúdo, ignoramos
+        justSavedHashRef.current = JSON.stringify({ months, goals, currentMonth, compareMonth });
         await db.collection(CLOUD_DOC_PATH.collection).doc(CLOUD_DOC_PATH.doc).set({
           months,
           goals,
@@ -1716,7 +1732,7 @@ const App = () => {
         console.error('Firestore save failed:', e);
         setCloudStatus('offline'); // continua funcionando offline com cache local
       }
-    }, 2000);
+    }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [months, goals, currentMonth, compareMonth, loaded, currentProfile]);
 
@@ -1960,6 +1976,39 @@ const App = () => {
         .ls-period-select:focus, .ls-period-select:hover { border-color: ${BRAND.gold}; }
         .ls-period-vs { font-family: 'Playfair Display', serif; font-size: 22px; font-style: italic; color: ${BRAND.gold}; align-self: center; padding: 0 4px; }
         .ls-period-actions { display: flex; gap: 8px; align-items: end; }
+
+        /* MINI PERIOD BAR — substitui o card grande quando está no Painel */
+        .ls-period-mini { display: flex; align-items: center; gap: 12px; padding: 12px 20px; margin-bottom: 28px; background: linear-gradient(90deg, rgba(45,53,33,0.5) 0%, rgba(20,22,16,0.3) 100%); border: 1px solid ${BRAND.borderSoft}; border-left: 2px solid ${BRAND.gold}; border-radius: 2px; font-size: 12px; color: ${BRAND.textMuted}; }
+        .ls-period-mini-label { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: ${BRAND.textDim}; }
+        .ls-period-mini-cur { color: ${BRAND.gold}; font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; font-weight: 500; letter-spacing: 0.02em; }
+        .ls-period-mini-vs { font-size: 10px; letter-spacing: 0.15em; color: ${BRAND.textDim}; font-style: italic; }
+        .ls-period-mini-prev { color: ${BRAND.greenSoft}; font-family: 'Playfair Display', serif; font-style: italic; font-size: 13px; font-weight: 500; }
+        .ls-period-mini-edit { background: transparent; border: 1px solid ${BRAND.borderSoft}; color: ${BRAND.textMuted}; padding: 5px 10px; font-family: 'Barlow', sans-serif; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .ls-period-mini-edit:hover { color: ${BRAND.gold}; border-color: ${BRAND.goldDim}; }
+
+        /* COMPARE VIEW — seletor grande na aba dedicada */
+        .ls-compare-selector { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center; padding: 32px 36px; background: linear-gradient(180deg, ${BRAND.surface} 0%, ${BRAND.bg} 100%); border: 1px solid ${BRAND.border}; border-radius: 4px; position: relative; overflow: hidden; margin-bottom: 18px; }
+        .ls-compare-selector::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, ${BRAND.gold} 25%, ${BRAND.gold} 75%, transparent 100%); z-index: 2; }
+        .ls-compare-block { display: flex; flex-direction: column; gap: 8px; }
+        .ls-compare-label { font-family: 'Playfair Display', serif; font-style: italic; font-size: 16px; color: ${BRAND.cream}; }
+        .ls-compare-hint { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: ${BRAND.textDim}; }
+        .ls-compare-select { padding: 14px 18px; font-size: 16px; }
+        .ls-compare-vs { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .ls-compare-vs-mark { font-family: 'Playfair Display', serif; font-size: 28px; font-style: italic; color: ${BRAND.gold}; }
+        .ls-compare-actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 32px; }
+
+        /* COMPARE SUMMARY TABLE */
+        .ls-compare-summary { background: ${BRAND.surface}; border: 1px solid ${BRAND.border}; border-radius: 4px; padding: 8px 24px; margin-bottom: 32px; }
+        .ls-compare-row { display: grid; grid-template-columns: 1.6fr 1fr 28px 1fr 80px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid ${BRAND.borderSoft}; }
+        .ls-compare-row:last-child { border-bottom: none; }
+        .ls-compare-row-label { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: ${BRAND.cream}; }
+        .ls-compare-row-val { font-family: 'DM Mono', monospace; font-size: 14px; color: ${BRAND.textMuted}; text-align: right; }
+        .ls-compare-row-cur { color: ${BRAND.cream}; font-weight: 600; }
+        .ls-compare-row-arrow { color: ${BRAND.gold}; text-align: center; font-size: 14px; }
+        .ls-compare-row-delta { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600; text-align: right; padding: 4px 10px; border-radius: 2px; }
+        .ls-compare-row-delta.good { color: ${BRAND.positive}; background: rgba(143,165,108,0.1); }
+        .ls-compare-row-delta.bad { color: ${BRAND.negative}; background: rgba(201,112,112,0.1); }
+        .ls-compare-row-delta.neutral { color: ${BRAND.textDim}; }
 
         /* SECTION HEADINGS */
         .ls-section-head { text-align: center; margin: 16px 0 28px; }
@@ -2238,6 +2287,8 @@ const App = () => {
 
         /* HISTORY */
         .ls-history { background: linear-gradient(180deg, ${BRAND.surface} 0%, ${BRAND.bg} 100%); border: 1px solid ${BRAND.border}; padding: 32px; position: relative; border-radius: 4px; overflow: hidden; }
+        .ls-history-tools { display: flex; align-items: center; gap: 12px; padding: 14px 20px; margin-bottom: 16px; background: rgba(201,112,112,0.04); border: 1px solid rgba(201,112,112,0.2); border-radius: 3px; }
+        .ls-history-tools-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: ${BRAND.textMuted}; margin-right: auto; }
         .ls-history::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, ${BRAND.gold} 25%, ${BRAND.gold} 75%, transparent 100%); z-index: 2; }
         .ls-history-table { width: 100%; border-collapse: collapse; }
         .ls-history-table th { font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; color: ${BRAND.textMuted}; font-weight: 500; padding: 14px 8px; text-align: right; border-bottom: 1px solid ${BRAND.goldDim}; }
@@ -2347,7 +2398,7 @@ const App = () => {
         {/* HEADER */}
         <header className="ls-header">
           <div className="ls-header-top">
-            <div className="ls-header-edition">N° <span>{edicaoNum}</span> · <span>{today.getFullYear()}</span> · <span style={{ color: 'rgba(212,184,94,0.5)', fontSize: 9, letterSpacing: '0.18em' }}>build v14</span></div>
+            <div className="ls-header-edition">N° <span>{edicaoNum}</span> · <span>{today.getFullYear()}</span> · <span style={{ color: 'rgba(212,184,94,0.5)', fontSize: 9, letterSpacing: '0.18em' }}>build v15</span></div>
             <div className="ls-header-tools">
               <div className={`ls-cloud-badge ls-cloud-${cloudStatus}`} title={
                 cloudStatus === 'synced' ? `Sincronizado${lastSyncBy ? ' · última edição por ' + lastSyncBy : ''}${lastSyncAt ? ' às ' + new Date(lastSyncAt).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : ''}` :
@@ -2365,6 +2416,7 @@ const App = () => {
                 </span>
               </div>
               <button className={`ls-nav-btn ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>Painel</button>
+              <button className={`ls-nav-btn ${view === 'compare' ? 'active' : ''}`} onClick={() => setView('compare')}>Comparar</button>
               <button className={`ls-nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => setView('history')}>Histórico</button>
               <button className="ls-tool-btn" onClick={() => setShowGoals(true)} title="Configurar metas"><Settings size={11}/></button>
               <button className="ls-tool-btn ls-tool-import" onClick={() => setShowImport(true)} title="Importar CSV do Meta Ads"><Upload size={11}/> importar</button>
@@ -2385,25 +2437,14 @@ const App = () => {
 
         {view === 'dashboard' && (
           <>
-            {/* PERIOD */}
-            <div className="ls-period">
-              <div className="ls-period-block">
-                <div className="ls-period-block-label">Mês de referência</div>
-                <select className="ls-period-select" value={currentMonth} onChange={(e) => setCurrentMonth(e.target.value)}>
-                  {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)} {months[k] ? '✓' : ''}</option>)}
-                </select>
-              </div>
-              <div className="ls-period-vs">vs.</div>
-              <div className="ls-period-block">
-                <div className="ls-period-block-label">Comparar com</div>
-                <select className="ls-period-select" value={compareMonth} onChange={(e) => setCompareMonth(e.target.value)}>
-                  {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)} {months[k] ? '✓' : ''}</option>)}
-                </select>
-              </div>
-              <div className="ls-period-actions">
-                <button className="ls-btn-outline" onClick={() => setCompareMonth(prevMonthKey(currentMonth))}><Calendar size={11}/> mês anterior</button>
-                <button className="ls-btn-primary" onClick={() => setEditingMonth(currentMonth)}><Edit3 size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/>editar {monthShort(currentMonth)}</button>
-              </div>
+            {/* Referência discreta do período ativo (a edição completa fica na aba Comparar) */}
+            <div className="ls-period-mini">
+              <span className="ls-period-mini-label">Analisando</span>
+              <strong className="ls-period-mini-cur">{monthLabel(currentMonth)}</strong>
+              <span className="ls-period-mini-vs">comparando com</span>
+              <strong className="ls-period-mini-prev">{monthLabel(compareMonth)}</strong>
+              <button className="ls-period-mini-edit" onClick={() => setView('compare')} title="Mudar referência ou comparação"><Edit3 size={10}/> alterar</button>
+              <button className="ls-btn-primary" onClick={() => setEditingMonth(currentMonth)} style={{marginLeft: 'auto'}}><Edit3 size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/>editar {monthShort(currentMonth)}</button>
             </div>
 
             {!curData && (
@@ -3187,6 +3228,89 @@ const App = () => {
           </>
         )}
 
+        {view === 'compare' && (
+          <>
+            <div className="ls-section-head">
+              <div className="ls-section-numeral">◆</div>
+              <h2 className="ls-section-title">Comparação entre Meses</h2>
+              <div className="ls-section-kicker">Escolha o mês de referência e o mês de comparação · todas as variações no Painel são calculadas a partir desta seleção</div>
+            </div>
+
+            {/* SELETOR — mesmo card do antigo topo do painel, agora maior e em destaque */}
+            <div className="ls-compare-selector">
+              <div className="ls-compare-block">
+                <div className="ls-compare-label">Mês de Referência</div>
+                <div className="ls-compare-hint">Esse mês é o foco da análise no Painel</div>
+                <select className="ls-period-select ls-compare-select" value={currentMonth} onChange={(e) => setCurrentMonth(e.target.value)}>
+                  {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)} {months[k] ? '✓' : ''}</option>)}
+                </select>
+              </div>
+              <div className="ls-compare-vs">
+                <div className="ls-compare-vs-mark">vs.</div>
+              </div>
+              <div className="ls-compare-block">
+                <div className="ls-compare-label">Comparar com</div>
+                <div className="ls-compare-hint">Mês base para calcular variações (MoM)</div>
+                <select className="ls-period-select ls-compare-select" value={compareMonth} onChange={(e) => setCompareMonth(e.target.value)}>
+                  {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)} {months[k] ? '✓' : ''}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="ls-compare-actions">
+              <button className="ls-btn-outline" onClick={() => setCompareMonth(prevMonthKey(currentMonth))}><Calendar size={11}/> usar mês anterior</button>
+              <button className="ls-btn-primary" onClick={() => setView('dashboard')}><ArrowRight size={11} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/>ver Painel com esta seleção</button>
+            </div>
+
+            {/* PREVIEW CONSOLIDADO — só aparece se tiver os dois meses */}
+            {curData && prevData && curM && prevM && (
+              <>
+                <div className="ls-section-head" style={{marginTop: 48}}>
+                  <div className="ls-section-numeral">◆</div>
+                  <h2 className="ls-section-title">Resumo da Comparação</h2>
+                  <div className="ls-section-kicker">{monthLabel(currentMonth)} vs {monthLabel(compareMonth)}</div>
+                </div>
+
+                <div className="ls-compare-summary">
+                  {[
+                    { label: 'Investimento Total',   cur: curM.totalInvAll,        prev: prevM.totalInvAll,       fmt: fmtBRL,    inverted: false },
+                    { label: 'Leads WhatsApp',       cur: curM.totalLeads,         prev: prevM.totalLeads,        fmt: fmtInt,    inverted: false },
+                    { label: 'Custo / Lead',         cur: curM.avgCostLeadTotal,   prev: prevM.avgCostLeadTotal,  fmt: fmtBRLCusto, inverted: true },
+                    { label: 'Mensagens (Rem+Frio)', cur: curM.remMsgs+curM.frioMsgs, prev: prevM.remMsgs+prevM.frioMsgs, fmt: fmtInt, inverted: false },
+                    { label: 'Custo / Msg',          cur: (curM.remInv+curM.frioInv) / Math.max(1, curM.remMsgs+curM.frioMsgs), prev: (prevM.remInv+prevM.frioInv)/Math.max(1, prevM.remMsgs+prevM.frioMsgs), fmt: fmtBRLCusto, inverted: true },
+                    { label: 'Novos Seguidores',     cur: curM.newFollowers || 0,  prev: prevM.newFollowers || 0, fmt: fmtInt,    inverted: false },
+                  ].map((r, i) => {
+                    const diff = r.cur - r.prev;
+                    const pct = r.prev > 0 ? diff / r.prev : 0;
+                    const good = r.inverted ? diff < 0 : diff > 0;
+                    const neutral = Math.abs(pct) < 0.005;
+                    return (
+                      <div key={i} className="ls-compare-row">
+                        <div className="ls-compare-row-label">{r.label}</div>
+                        <div className="ls-compare-row-val">{r.fmt(r.prev)}</div>
+                        <div className="ls-compare-row-arrow">→</div>
+                        <div className="ls-compare-row-val ls-compare-row-cur">{r.fmt(r.cur)}</div>
+                        <div className={`ls-compare-row-delta ${neutral ? 'neutral' : (good ? 'good' : 'bad')}`}>
+                          {neutral ? '—' : (diff >= 0 ? '+' : '') + fmtPct(pct)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {(!curData || !prevData) && (
+              <div className="ls-empty" style={{marginTop: 32}}>
+                <div className="ls-empty-icon"><Calendar size={40} strokeWidth={1} /></div>
+                <h3>Faltam dados para comparar</h3>
+                <p>{!curData ? `Não há dados de ${monthLabel(currentMonth)}. ` : ''}{!prevData ? `Não há dados de ${monthLabel(compareMonth)}.` : ''}</p>
+                <p style={{fontSize: 11, color: BRAND.textDim, fontStyle: 'italic'}}>O painel continua funcionando, mas as variações (MoM) aparecerão como "novo" enquanto não houver mês de comparação válido.</p>
+              </div>
+            )}
+          </>
+        )}
+
         {view === 'history' && (
           <>
             <div className="ls-section-head">
@@ -3194,6 +3318,38 @@ const App = () => {
               <h2 className="ls-section-title">Histórico Completo</h2>
               <div className="ls-section-kicker">Todos os meses lançados</div>
             </div>
+
+            {sortedKeys.length > 0 && (
+              <div className="ls-history-tools">
+                <div className="ls-history-tools-label">Ferramentas de limpeza:</div>
+                <button
+                  className="ls-btn-danger"
+                  onClick={() => {
+                    if (window.confirm(`Apagar TODOS os meses, EXCETO ${monthLabel(currentMonth)}?\n\nIsso vai remover ${sortedKeys.filter(k => k !== currentMonth).length} meses do histórico em uma única operação.\n\nÚtil se você quer ficar só com o mês de referência atual.`)) {
+                      setMonths((m) => {
+                        const n = {};
+                        if (m[currentMonth]) n[currentMonth] = m[currentMonth];
+                        return n;
+                      });
+                    }
+                  }}
+                >
+                  <Trash2 size={11}/> Apagar todos exceto {monthShort(currentMonth)}
+                </button>
+                <button
+                  className="ls-btn-danger"
+                  onClick={() => {
+                    if (window.confirm(`Apagar TODOS os meses do histórico?\n\nEsta ação remove ${sortedKeys.length} meses de uma vez. Você vai começar do zero.\n\nNão pode ser desfeita.`)) {
+                      setMonths({});
+                    }
+                  }}
+                  style={{borderColor: 'rgba(201,112,112,0.6)'}}
+                >
+                  <Trash2 size={11}/> Apagar tudo
+                </button>
+              </div>
+            )}
+
             <div className="ls-history">
               {sortedKeys.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '50px 0', color: BRAND.textMuted, fontFamily: 'Playfair Display', fontStyle: 'italic', fontSize: 16 }}>Nenhum mês lançado ainda.</div>
