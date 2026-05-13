@@ -19,6 +19,10 @@
   <!-- Babel para JSX inline -->
   <script src="https://unpkg.com/@babel/standalone@7.23.0/babel.min.js"></script>
 
+  <!-- Firebase (compat para acesso global `firebase`) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
   <style>
     html, body { margin: 0; padding: 0; background: #353d28; min-height: 100vh; }
     body { font-family: 'Barlow', sans-serif; }
@@ -100,6 +104,8 @@
         const Settings = (p) => React.createElement('svg', { ...p, width: p.size||16, height: p.size||16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth||2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>' } });
         const ArrowRight = (p) => React.createElement('svg', { ...p, width: p.size||16, height: p.size||16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth||2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>' } });
         const FlaskConical = (p) => React.createElement('svg', { ...p, width: p.size||16, height: p.size||16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth||2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/><path d="M6.5 19h11"/>' } });
+        const Upload = (p) => React.createElement('svg', { ...p, width: p.size||16, height: p.size||16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth||2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>' } });
+        const FileText = (p) => React.createElement('svg', { ...p, width: p.size||16, height: p.size||16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: p.strokeWidth||2, strokeLinecap: 'round', strokeLinejoin: 'round', dangerouslySetInnerHTML: { __html: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>' } });
 
         // ═══════════════════════════════════════════════════════════════════
         // ═══ DASHBOARD CODE (a partir de loretto_dashboard_v5.jsx) ═══
@@ -151,6 +157,38 @@ const BRAND = {
 
 const STORAGE_KEY = 'loretto_dashboard_v3';
 
+// ============ FIREBASE CLOUD SYNC ============
+// Inicializa Firebase Firestore pra sincronização em nuvem.
+// Os dados ficam em /dashboards/loretto e são compartilhados entre Gregory e Caio.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCogQoTSULCdC1JhTb0IUilWAIA1itBJ8U",
+  authDomain: "loretto-scarpa-l-icr.firebaseapp.com",
+  projectId: "loretto-scarpa-l-icr",
+  storageBucket: "loretto-scarpa-l-icr.firebasestorage.app",
+  messagingSenderId: "428188657366",
+  appId: "1:428188657366:web:7e6e388155ca6f2d83cb77",
+};
+const CLOUD_DOC_PATH = { collection: 'dashboards', doc: 'loretto' };
+
+// Singleton: inicializa só uma vez (mesmo em hot reload do Babel)
+let _firebaseApp = null;
+let _firestore = null;
+const getFirestore = () => {
+  if (typeof firebase === 'undefined') return null; // SDK ainda carregando
+  if (!_firebaseApp) {
+    try {
+      _firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+      _firestore = firebase.firestore();
+      // Persistência offline (cache local automático do Firestore)
+      _firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    } catch (e) {
+      console.error('Firebase init failed:', e);
+      return null;
+    }
+  }
+  return _firestore;
+};
+
 // ============ FORMAT HELPERS ============
 const fmtBRL = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtBRL0 = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -191,7 +229,7 @@ const emptyMonth = () => ({
   remarketing: { investment: 0, audiences: [{ name: '', messages: 0, costPerMsg: 0 }], leads: 0 },
   frio: { investment: 0, audiences: [{ name: '', messages: 0, costPerMsg: 0 }], leads: 0 },
   perfilTraffic: { campaigns: [{ name: '', cost: 0, results: 0 }] },
-  perfilNumbers: { impressions: 0, visits: 0, newFollowers: 0 },
+  perfilNumbers: { impressions: 0, reach: 0, interactions: 0, linkClicks: 0, visits: 0, newFollowers: 0 },
 });
 
 const defaultGoals = () => ({
@@ -204,13 +242,14 @@ const defaultGoals = () => ({
   allocRemarketing: 50,
   allocFrio: 35,
   allocPerfil: 15,
-  // Contatos WhatsApp Business — cada um é dono de públicos específicos
-  // Os leads de cada público vão automaticamente pro contato dono
+  // Contatos WhatsApp Business — cada vendedora "possui" os públicos cujo NOME do conjunto contém
+  // alguma das suas keywords. O sistema detecta automaticamente — você não precisa cadastrar
+  // público por público. Adicione variações de typo se aparecerem (ex.: JHENIFER ao lado de JHENNIFER).
   contacts: [
-    { name: 'Jhennifer', remarketing: ['Rem 0-15'],            frio: ['Comportamento'] },
-    { name: 'Ialey',     remarketing: ['Rem 30-60 · Ialey'],   frio: ['Moda'] },
-    { name: 'Michelly',  remarketing: ['Rem 30-60 · Michelly'],frio: ['Autoridade', 'Comercial'] },
-    { name: 'Natália',   remarketing: ['Rem 60-90'],           frio: ['Empresários', 'Saúde'] },
+    { name: 'Jhennifer', keywords: ['JHENNIFER', 'JHENIFER', 'JENIFER'], phones: ['62 8168-8990'] },
+    { name: 'Ialey',     keywords: ['IALEY', 'IALI'],                    phones: ['62 8172-8039'] },
+    { name: 'Michelly',  keywords: ['MICHELLY', 'MICHELY', 'MICHELE'],   phones: ['62 8194-0350'] },
+    { name: 'Natália',   keywords: ['NATALIA', 'NATÁLIA'],               phones: ['62 8200-1112'] },
   ],
 });
 
@@ -236,6 +275,9 @@ const computeMetrics = (m) => {
     avgCostPerfilResult: perfilResults > 0 ? perfilInv / perfilResults : 0,
     totalInvAll: totalInv + perfilInv,
     impressions: Number(m.perfilNumbers.impressions) || 0,
+    reach: Number(m.perfilNumbers.reach) || 0,
+    interactions: Number(m.perfilNumbers.interactions) || 0,
+    linkClicks: Number(m.perfilNumbers.linkClicks) || 0,
     visits: Number(m.perfilNumbers.visits) || 0,
     newFollowers: Number(m.perfilNumbers.newFollowers) || 0,
   };
@@ -360,11 +402,239 @@ const paretoAudiences = (curMonth) => {
   return { all, total, top80Count: count80, top80Pct: count80 / all.length };
 };
 
+// ============ CSV PARSER + META ADS IMPORTER ============
+// Parser CSV robusto: lida com BOM, delimitadores comuns (',' ';' '\t'), aspas escapadas.
+const parseCSV = (text) => {
+  // Remove BOM
+  text = text.replace(/^\uFEFF/, '');
+  // Detect delimiter na primeira linha (vence o mais comum)
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  let q = false;
+  for (const ch of firstLine) {
+    if (ch === '"') q = !q;
+    else if (!q && counts[ch] !== undefined) counts[ch]++;
+  }
+  const delim = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') inQuote = false;
+      else cell += ch;
+    } else {
+      if (ch === '"') inQuote = true;
+      else if (ch === delim) { row.push(cell); cell = ''; }
+      else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else if (ch === '\r') { /* skip */ }
+      else cell += ch;
+    }
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c && c.trim()));
+};
+
+// Parse number that may be in BR format (R$ 1.234,56) or EN (1234.56 / 1,234.56)
+const parseNum = (val) => {
+  if (val === null || val === undefined || val === '') return 0;
+  let s = String(val).trim().replace(/^R\$\s*/i, '').replace(/\s/g, '');
+  if (!s) return 0;
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    // both — assume thousand=dot, decimal=comma (BR)
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    // only comma — likely decimal separator in BR
+    s = s.replace(',', '.');
+  }
+  // only dot or neither — leave as-is
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
+// Detect each useful column by header pattern (PT-BR + EN variations)
+const detectMetaColumns = (headers) => {
+  const lower = headers.map((h) => (h || '').trim().toLowerCase());
+  const find = (patterns) => {
+    for (let i = 0; i < lower.length; i++) {
+      for (const p of patterns) if (p.test(lower[i])) return i;
+    }
+    return -1;
+  };
+  return {
+    // audienceName precisa ser específico — "nome do conjunto" / "ad set name" / "público personalizado"
+    // (evita falso match em "Orçamento do conjunto de anúncios")
+    audienceName: find([/^nome do conjunto/i, /^ad ?set ?name$/i, /^ad ?set$/i, /^p[uú]blico personalizado/i, /^p[uú]blico$/i, /^audi[eê]ncia$/i, /^audience ?name$/i]),
+    campaignName: find([/^nome da campanha/i, /^campanha$/i, /^campaign ?name$/i, /^campaign$/i]),
+    spent: find([/^valor usado/i, /^valor gasto/i, /^amount spent/i, /^spend$/i, /^gasto$/i, /^custo total/i, /^cost$/i]),
+    results: find([/^resultados$/i, /^results$/i, /^conversas? iniciadas?/i, /^messaging conversations/i]),
+    costPerResult: find([/^custo por resultados?$/i, /^cost per results?$/i, /^custo por conversa/i, /^cost per messaging/i]),
+    resultIndicator: find([/^indicador de resultados?/i, /^result indicator/i, /^result type/i]),
+    impressions: find([/^impress[oõ]es/i, /^impressions/i]),
+    reach: find([/^alcance/i, /^reach/i]),
+    cpm: find([/^cpm/i, /custo por 1[\.,]000 impress/i, /cost per 1[\.,]000 impr/i]),
+    cpc: find([/^cpc \(custo por clique no link/i, /^cpc \(cost per link/i, /^cpc$/i]),
+    clicks: find([/^cliques no link$/i, /^link clicks$/i, /^cliques$/i, /^clicks$/i]),
+    placement: find([/^veicula[cç][aã]o(?!.*campanha)/i, /^placement/i]),
+    objective: find([/^objetivo/i, /^objective$/i]),
+  };
+};
+
+// Normaliza um telefone para os últimos 8 dígitos (ignora DDD e nono dígito).
+// Ex.: "62 8200-1112" → "82001112"; "+55 62 98200-1112" → "82001112"
+const normalizePhone = (s) => {
+  if (!s) return '';
+  const digits = String(s).replace(/\D/g, '');
+  return digits.slice(-8);
+};
+
+// Detecta qual vendedora "possui" um público pelo nome do conjunto.
+// Match por: (1) keyword textual do nome dela; (2) número de telefone (tolerante a formato).
+const detectContact = (audienceName, contacts) => {
+  if (!audienceName || !contacts || !contacts.length) return null;
+  const upper = audienceName.toUpperCase();
+  const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const flat = stripAccents(upper);
+  const audDigits = audienceName.replace(/\D/g, '');
+  for (const contact of contacts) {
+    // (1) keyword textual
+    const keywords = contact.keywords || [contact.name];
+    for (const kw of keywords) {
+      const kwFlat = stripAccents(String(kw).toUpperCase());
+      if (kwFlat && flat.includes(kwFlat)) return contact.name;
+    }
+    // (2) telefone
+    for (const phone of (contact.phones || [])) {
+      const phoneNorm = normalizePhone(phone);
+      if (phoneNorm && audDigits.includes(phoneNorm)) return contact.name;
+    }
+  }
+  return null;
+};
+
+// Classifica uma linha como remarketing / frio / feed / skip
+// Prioridade: (1) Indicador de resultados (sinal forte do Meta) → (2) padrão de nomes Loretto → (3) heurísticas gerais
+const classifyRow = (rowData, contacts) => {
+  const name = (rowData.audienceName || rowData.campaignName || '').trim();
+  if (!name) return 'skip';
+  const norm = normalize(name);
+  const upper = name.toUpperCase();
+
+  // 1. Match exato com config de contatos
+  for (const contact of (contacts || [])) {
+    for (const r of (contact.remarketing || [])) if (normalize(r) === norm) return 'remarketing';
+    for (const f of (contact.frio || [])) if (normalize(f) === norm) return 'frio';
+  }
+
+  // 2. Indicador de resultados (sinal MAIS forte — vem do Meta)
+  const indicator = (rowData.resultIndicator || '').toLowerCase();
+  const isMessaging = /messaging_conversation|conversa_iniciada|onsite_conversion\.messaging/.test(indicator);
+  const isPostEngagement = /post_engagement/.test(indicator);
+  const isProfileVisit = /profile_visit|page_view/.test(indicator);
+  const isPageFollow = /page_follow|page_like|follow/.test(indicator);
+  const isLinkClick = /link_click|landing_page/.test(indicator);
+  const isLead = /lead/.test(indicator);
+
+  if (isPostEngagement || isProfileVisit || isPageFollow) return 'feed';
+  if (isMessaging) {
+    // É WhatsApp — decide rem vs frio pelo nome
+    // ENGAJAMENT N D (público quente), LISTA DE CLIENTES, RMKT, RECOMPRA → remarketing
+    if (/\bENGAJAMENT\w*\b.*\d+\s*D\b|\bENGAJAMENT\w*\s*\d+\s*D\b|\[RMKT\]|\bRMKT\b|REMARKETING|RECOMPRA|RETARGET|LISTA DE CLIENTES/.test(upper)) return 'remarketing';
+    return 'frio';
+  }
+  if (isLead) return 'frio';
+
+  // 3. Padrão de nomes Loretto (fallback se Indicador não disponível)
+  const isMsgCampaign = /\[CAMPANHA DE MSG\]|\[MSG\]|\[CAMPANHA DE MENSAGEM\]|\[MENSAGEM\b/.test(upper);
+  const isFollowersCampaign = /\[CAMPANHA DE SEGUIDORES\]|\[SEGUIDORES\b|\[CAMPANHA DE VISITA AO PERFIL\]|\[VISITA AO PERFIL\]|\[SEGUIDORES FEED\]|\[CAMPANHA PERFIL/.test(upper);
+  const isEngagementPost = /^POST DO INSTAGRAM|^PUBLICAÇÃO DO INSTAGRAM|^PUBLICACAO DO INSTAGRAM|NOVA CAMPANHA DE ENGAJAMENTO/.test(upper);
+  const isLeadCampaign = /\[CAMPANHA DE LEAD\]|\[LEAD\]/.test(upper);
+
+  if (isMsgCampaign) {
+    const isRMKT = /\[RMKT\]|\bRMKT\b|REMARKETING|RECOMPRA|RETARGET|\bENGAJAMENT\w*\b.*\d+\s*D\b|\bENGAJAMENT\w*\s*\d+\s*D\b/.test(upper);
+    return isRMKT ? 'remarketing' : 'frio';
+  }
+  if (isFollowersCampaign || isEngagementPost) return 'feed';
+  if (isLeadCampaign) return 'frio';
+
+  // 4. Heurísticas finais (sem indicador, sem tags claras)
+  if (/\bENGAJAMENT\w*\b.*\d+\s*D\b|\bENGAJAMENT\w*\s*\d+\s*D\b/.test(upper)) return 'remarketing';
+  if (/COMPORTAMENT|INTERESSES?|PROFISSOES|MABERTO|CONDOMINIO|LOOKALIKE|AUTORIDADE|DEMOGRAF|PROSPEC/.test(upper)) return 'frio';
+  if (/\brem(arketing)?\b|^rem\s|comprador|engaj|vip|recompra/i.test(name)) return 'remarketing';
+  if (/reels|catalog|awareness|tr[aá]fego|stories|alcance|impress|^feed$|seguidor/i.test(name)) return 'feed';
+
+  if (isLinkClick) return 'feed';
+  return 'skip';
+};
+
+// Constrói o objeto de mês a partir das linhas classificadas
+const buildMonthFromCSV = (rows) => {
+  const month = emptyMonth();
+  month.remarketing.audiences = [];
+  month.frio.audiences = [];
+  month.perfilTraffic.campaigns = [];
+
+  let remInv = 0, frioInv = 0;
+  let remLeadsTotal = 0, frioLeadsTotal = 0;
+
+  for (const r of rows) {
+    if (r.classification === 'skip') continue;
+    const spent = r.spent || 0;
+    const results = r.results || 0;
+    const costPerResult = r.costPerResult || (results > 0 ? spent / results : 0);
+
+    if (r.classification === 'remarketing') {
+      remInv += spent;
+      remLeadsTotal += results; // aqui results = conversas iniciadas (proxy de leads)
+      month.remarketing.audiences.push({
+        name: r.audienceName || r.campaignName || '(sem nome)',
+        messages: results,
+        costPerMsg: costPerResult,
+      });
+    } else if (r.classification === 'frio') {
+      frioInv += spent;
+      frioLeadsTotal += results;
+      month.frio.audiences.push({
+        name: r.audienceName || r.campaignName || '(sem nome)',
+        messages: results,
+        costPerMsg: costPerResult,
+      });
+    } else if (r.classification === 'feed') {
+      month.perfilTraffic.campaigns.push({
+        name: r.campaignName || r.audienceName || '(sem nome)',
+        cost: spent,
+        results: results,
+      });
+    }
+  }
+
+  month.remarketing.investment = remInv;
+  month.frio.investment = frioInv;
+  month.remarketing.leads = remLeadsTotal;
+  month.frio.leads = frioLeadsTotal;
+  // perfilNumbers (impressões/visitas/seguidores) não vêm do Meta Ads — manter zerados, gestor preenche depois
+
+  // garantir pelo menos 1 entrada vazia em cada array
+  if (!month.remarketing.audiences.length) month.remarketing.audiences = [{ name: '', messages: 0, costPerMsg: 0 }];
+  if (!month.frio.audiences.length) month.frio.audiences = [{ name: '', messages: 0, costPerMsg: 0 }];
+  if (!month.perfilTraffic.campaigns.length) month.perfilTraffic.campaigns = [{ name: '', cost: 0, results: 0 }];
+
+  return month;
+};
+
 // ============ ANALYTICS · DISTRIBUIÇÃO POR CONTATO ============
 // Cruza a config de contatos (em goals.contacts) com os públicos do mês.
 // Cada contato é dono de públicos específicos — os leads daquele público vão
 // inteiros pra ele. Como a estrutura atual não tem leads por público, fazemos
 // rateio proporcional ao volume de mensagens.
+// Cruza públicos do mês com os contatos via keyword matching (nome da vendedora dentro do nome do conjunto).
+// Cada contato recebe os públicos que contêm sua keyword. Leads são rateados proporcionalmente
+// às mensagens dentro de cada canal.
 const getContactPerformance = (curMonth, contacts) => {
   if (!curMonth || !contacts || !contacts.length) return [];
 
@@ -373,58 +643,39 @@ const getContactPerformance = (curMonth, contacts) => {
   const remTotalLeads = Number(curMonth.remarketing.leads) || 0;
   const frioTotalLeads = Number(curMonth.frio.leads) || 0;
 
-  const findAudience = (channelName, audName) => {
-    const list = curMonth[channelName].audiences || [];
-    return list.find((a) => normalize(a.name) === normalize(audName));
+  // Inicializa cada contato com bucket vazio + bucket "(sem contato)" para os órfãos
+  const buckets = {};
+  for (const c of contacts) buckets[c.name] = { name: c.name, audiences: [], totalMsgs: 0, totalSpent: 0, totalLeadsExact: 0 };
+  buckets['(sem vendedora)'] = { name: '(sem vendedora)', audiences: [], totalMsgs: 0, totalSpent: 0, totalLeadsExact: 0 };
+
+  const processAudiences = (audList, channelName, channelTotalMsgs, channelTotalLeads) => {
+    for (const a of (audList || [])) {
+      if (!a.name) continue;
+      const owner = detectContact(a.name, contacts) || '(sem vendedora)';
+      const msgs = Number(a.messages) || 0;
+      const cpm = Number(a.costPerMsg) || 0;
+      const spent = msgs * cpm;
+      const leads = channelTotalMsgs > 0 ? (msgs / channelTotalMsgs) * channelTotalLeads : 0;
+      const costPerLead = leads > 0 ? spent / leads : 0;
+      buckets[owner].audiences.push({ name: a.name, channel: channelName, messages: msgs, costPerMsg: cpm, spent, leads, costPerLead });
+      buckets[owner].totalMsgs += msgs;
+      buckets[owner].totalSpent += spent;
+      buckets[owner].totalLeadsExact += leads;
+    }
   };
 
-  return contacts.map((contact) => {
-    const audiences = [];
-    let totalMsgs = 0;
-    let totalSpent = 0;
-    let totalLeadsExact = 0;
+  processAudiences(curMonth.remarketing.audiences, 'remarketing', remTotalMsgs, remTotalLeads);
+  processAudiences(curMonth.frio.audiences, 'frio', frioTotalMsgs, frioTotalLeads);
 
-    // Remarketing públicos atribuídos
-    for (const audName of (contact.remarketing || [])) {
-      const match = findAudience('remarketing', audName);
-      if (!match) {
-        audiences.push({ name: audName, channel: 'remarketing', messages: 0, costPerMsg: 0, spent: 0, leads: 0, costPerLead: 0, missing: true });
-        continue;
-      }
-      const msgs = Number(match.messages) || 0;
-      const cpm = Number(match.costPerMsg) || 0;
-      const spent = msgs * cpm;
-      const leads = remTotalMsgs > 0 ? (msgs / remTotalMsgs) * remTotalLeads : 0;
-      const costPerLead = leads > 0 ? spent / leads : 0;
-      audiences.push({ name: audName, channel: 'remarketing', messages: msgs, costPerMsg: cpm, spent, leads, costPerLead });
-      totalMsgs += msgs;
-      totalSpent += spent;
-      totalLeadsExact += leads;
-    }
-    // Frio públicos atribuídos
-    for (const audName of (contact.frio || [])) {
-      const match = findAudience('frio', audName);
-      if (!match) {
-        audiences.push({ name: audName, channel: 'frio', messages: 0, costPerMsg: 0, spent: 0, leads: 0, costPerLead: 0, missing: true });
-        continue;
-      }
-      const msgs = Number(match.messages) || 0;
-      const cpm = Number(match.costPerMsg) || 0;
-      const spent = msgs * cpm;
-      const leads = frioTotalMsgs > 0 ? (msgs / frioTotalMsgs) * frioTotalLeads : 0;
-      const costPerLead = leads > 0 ? spent / leads : 0;
-      audiences.push({ name: audName, channel: 'frio', messages: msgs, costPerMsg: cpm, spent, leads, costPerLead });
-      totalMsgs += msgs;
-      totalSpent += spent;
-      totalLeadsExact += leads;
-    }
-
-    const totalLeads = Math.round(totalLeadsExact);
-    const avgCostPerLead = totalLeadsExact > 0 ? totalSpent / totalLeadsExact : 0;
-    const avgCostPerMsg = totalMsgs > 0 ? totalSpent / totalMsgs : 0;
-
-    return { name: contact.name, audiences, totalMsgs, totalSpent, totalLeads, avgCostPerLead, avgCostPerMsg };
-  });
+  return Object.values(buckets)
+    .map((b) => ({
+      ...b,
+      totalLeads: Math.round(b.totalLeadsExact),
+      avgCostPerLead: b.totalLeadsExact > 0 ? b.totalSpent / b.totalLeadsExact : 0,
+      avgCostPerMsg: b.totalMsgs > 0 ? b.totalSpent / b.totalMsgs : 0,
+    }))
+    // Esconde o bucket "(sem vendedora)" se estiver vazio; senão mostra
+    .filter((b) => b.name !== '(sem vendedora)' || b.audiences.length > 0);
 };
 
 // ============ ANALYTICS · TOP PERFORMERS ============
@@ -702,6 +953,249 @@ const GoalsModal = ({ goals, onSave, onClose }) => {
   );
 };
 
+// ============ IMPORT CSV MODAL ============
+const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose }) => {
+  const [stage, setStage] = useState('upload'); // upload | preview | done
+  const [filename, setFilename] = useState('');
+  const [rawRows, setRawRows] = useState([]); // parsed rows from CSV
+  const [classifiedRows, setClassifiedRows] = useState([]);
+  const [destinationMonth, setDestinationMonth] = useState(targetMonth);
+  const [mergeMode, setMergeMode] = useState('replace');
+  const [error, setError] = useState('');
+
+  const handleFile = (file) => {
+    if (!file) return;
+    setFilename(file.name);
+    setError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        const rows = parseCSV(text);
+        if (rows.length < 2) { setError('CSV vazio ou inválido — verifique se há cabeçalho e ao menos uma linha.'); return; }
+        const headers = rows[0];
+        const cols = detectMetaColumns(headers);
+        const dataRows = rows.slice(1);
+        const parsed = dataRows.map((row) => ({
+          audienceName: cols.audienceName >= 0 ? (row[cols.audienceName] || '').trim() : '',
+          campaignName: cols.campaignName >= 0 ? (row[cols.campaignName] || '').trim() : '',
+          spent: cols.spent >= 0 ? parseNum(row[cols.spent]) : 0,
+          results: cols.results >= 0 ? parseNum(row[cols.results]) : 0,
+          costPerResult: cols.costPerResult >= 0 ? parseNum(row[cols.costPerResult]) : 0,
+          resultIndicator: cols.resultIndicator >= 0 ? (row[cols.resultIndicator] || '') : '',
+          impressions: cols.impressions >= 0 ? parseNum(row[cols.impressions]) : 0,
+          reach: cols.reach >= 0 ? parseNum(row[cols.reach]) : 0,
+          clicks: cols.clicks >= 0 ? parseNum(row[cols.clicks]) : 0,
+          placement: cols.placement >= 0 ? (row[cols.placement] || '') : '',
+          objective: cols.objective >= 0 ? (row[cols.objective] || '') : '',
+          _rawRow: row,
+        })).filter((r) => r.audienceName || r.campaignName || r.spent > 0);
+
+        if (parsed.length === 0) {
+          setError('Nenhuma linha válida encontrada. Verifique se o CSV foi exportado com Detalhamento por Públicos e tem as colunas necessárias (Valor gasto, Resultados, Conjunto de Anúncios).');
+          return;
+        }
+
+        const classified = parsed.map((p) => {
+          // Linhas com gasto E resultado zerados são automaticamente marcadas como "ignorar"
+          // (campanhas pausadas/inativas no Meta), mas continuam visíveis e o usuário pode reativar
+          if (p.spent === 0 && p.results === 0) return { ...p, classification: 'skip' };
+          return { ...p, classification: classifyRow(p, contacts) };
+        });
+        setRawRows(parsed);
+        setClassifiedRows(classified);
+        setStage('preview');
+      } catch (err) {
+        setError('Falha ao processar o arquivo: ' + err.message);
+      }
+    };
+    reader.onerror = () => setError('Falha na leitura do arquivo.');
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const updateClassification = (idx, newClass) => {
+    setClassifiedRows((rows) => rows.map((r, i) => i === idx ? { ...r, classification: newClass } : r));
+  };
+
+  const handleImport = () => {
+    const newMonthData = buildMonthFromCSV(classifiedRows);
+    if (mergeMode === 'merge' && currentMonths[destinationMonth]) {
+      const existing = currentMonths[destinationMonth];
+      newMonthData.remarketing.audiences = [...(existing.remarketing.audiences || []).filter((a) => a.name || a.messages), ...newMonthData.remarketing.audiences.filter((a) => a.name)];
+      newMonthData.frio.audiences = [...(existing.frio.audiences || []).filter((a) => a.name || a.messages), ...newMonthData.frio.audiences.filter((a) => a.name)];
+      newMonthData.perfilTraffic.campaigns = [...(existing.perfilTraffic.campaigns || []).filter((c) => c.name || c.cost), ...newMonthData.perfilTraffic.campaigns.filter((c) => c.name)];
+      newMonthData.remarketing.investment += Number(existing.remarketing.investment) || 0;
+      newMonthData.frio.investment += Number(existing.frio.investment) || 0;
+      newMonthData.remarketing.leads += Number(existing.remarketing.leads) || 0;
+      newMonthData.frio.leads += Number(existing.frio.leads) || 0;
+      // mantém perfilNumbers existentes
+      newMonthData.perfilNumbers = { ...existing.perfilNumbers };
+    }
+    onSave(destinationMonth, newMonthData);
+  };
+
+  const stats = useMemo(() => {
+    const s = { remarketing: 0, frio: 0, feed: 0, skip: 0, totalSpent: 0, totalResults: 0 };
+    for (const r of classifiedRows) {
+      s[r.classification] = (s[r.classification] || 0) + 1;
+      if (r.classification !== 'skip') {
+        s.totalSpent += r.spent;
+        s.totalResults += r.results;
+      }
+    }
+    return s;
+  }, [classifiedRows]);
+
+  // Build month options (24 months around target)
+  const monthOpts = useMemo(() => {
+    const set = new Set(Object.keys(currentMonths || {}));
+    const today = new Date();
+    for (let i = -2; i < 24; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return Array.from(set).sort().reverse();
+  }, [currentMonths]);
+
+  return (
+    <div className="ls-modal-overlay" onClick={onClose}>
+      <div className="ls-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 1100 }}>
+        <div className="ls-modal-head">
+          <div>
+            <div className="ls-modal-eyebrow">— Importação —</div>
+            <h2 className="ls-modal-title">CSV do Meta Ads</h2>
+          </div>
+          <button className="ls-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="ls-modal-body">
+          {stage === 'upload' && (
+            <section className="ls-edit-section">
+              <h3 className="ls-edit-title"><span className="ls-edit-num">1</span> Selecione o CSV exportado</h3>
+              <p style={{ color: BRAND.textMuted, fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
+                No Gerenciador de Anúncios → exporte o relatório do mês fechado, no nível <strong style={{ color: BRAND.gold }}>Conjunto de Anúncios</strong>, com detalhamento por <strong style={{ color: BRAND.gold }}>Públicos Personalizados</strong>. Colunas mínimas: Conjunto de Anúncios, Valor gasto, Resultados, Custo por resultado.
+              </p>
+              <label className="ls-csv-drop">
+                <Upload size={32} color={BRAND.gold} strokeWidth={1.3} />
+                <div className="ls-csv-drop-title">Clique aqui ou arraste o arquivo .csv</div>
+                <div className="ls-csv-drop-sub">Aceita formato exportado do Gerenciador de Anúncios (PT-BR ou EN)</div>
+                <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
+              </label>
+              {error && <div className="ls-csv-error"><AlertCircle size={14}/> {error}</div>}
+            </section>
+          )}
+
+          {stage === 'preview' && (
+            <>
+              <section className="ls-edit-section">
+                <h3 className="ls-edit-title"><span className="ls-edit-num">2</span> Revisar classificação</h3>
+                <div className="ls-csv-summary">
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Arquivo</div>
+                    <div className="ls-csv-summary-value" style={{ fontFamily: 'Barlow', fontSize: 13 }}><FileText size={12} style={{display:'inline', marginRight:6, verticalAlign:'middle'}}/>{filename}</div>
+                  </div>
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Remarketing</div>
+                    <div className="ls-csv-summary-value" style={{ color: BRAND.gold }}>{stats.remarketing}</div>
+                  </div>
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Frio</div>
+                    <div className="ls-csv-summary-value" style={{ color: BRAND.greenSoft }}>{stats.frio}</div>
+                  </div>
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Feed</div>
+                    <div className="ls-csv-summary-value" style={{ color: BRAND.goldSoft }}>{stats.feed}</div>
+                  </div>
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Ignoradas</div>
+                    <div className="ls-csv-summary-value" style={{ color: BRAND.textDim }}>{stats.skip || 0}</div>
+                  </div>
+                  <div className="ls-csv-summary-item">
+                    <div className="ls-csv-summary-label">Gasto total</div>
+                    <div className="ls-csv-summary-value">{fmtBRL0(stats.totalSpent)}</div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="ls-edit-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 className="ls-edit-title" style={{ margin: 0 }}><span className="ls-edit-num">3</span> Linhas detectadas</h3>
+                  <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: BRAND.textMuted }}>clique nas tags pra reclassificar</div>
+                </div>
+                <table className="ls-csv-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th><th>Classificação</th><th>Gasto</th><th>Result.</th><th>R$/Result.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...classifiedRows].map((r, originalIdx) => ({ r, originalIdx })).sort((a, b) => {
+                      // Ativas (spent > 0) primeiro, depois ignoradas
+                      const aActive = a.r.spent > 0 ? 0 : 1;
+                      const bActive = b.r.spent > 0 ? 0 : 1;
+                      if (aActive !== bActive) return aActive - bActive;
+                      return b.r.spent - a.r.spent;
+                    }).map(({ r, originalIdx }) => (
+                      <tr key={originalIdx} className={r.classification === 'skip' ? 'ls-csv-row-skip' : ''}>
+                        <td className="ls-csv-row-name">{r.audienceName || r.campaignName || '(sem nome)'}</td>
+                        <td>
+                          <div className="ls-csv-tags">
+                            {['remarketing', 'frio', 'feed', 'skip'].map((cls) => (
+                              <button key={cls} className={`ls-csv-tag ls-csv-tag-${cls} ${r.classification === cls ? 'active' : ''}`} onClick={() => updateClassification(originalIdx, cls)}>
+                                {cls === 'remarketing' ? 'rem' : cls === 'feed' ? 'feed' : cls === 'skip' ? 'ignorar' : 'frio'}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td>{fmtBRL(r.spent)}</td>
+                        <td>{fmtInt(r.results)}</td>
+                        <td>{r.costPerResult > 0 ? fmtBRL(r.costPerResult) : (r.results > 0 ? fmtBRL(r.spent / r.results) : '—')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+
+              <section className="ls-edit-section">
+                <h3 className="ls-edit-title"><span className="ls-edit-num">4</span> Destino e modo</h3>
+                <div className="ls-edit-grid-2">
+                  <div className="ls-field">
+                    <span className="ls-field-label">Importar para o mês</span>
+                    <select className="ls-field-input" value={destinationMonth} onChange={(e) => setDestinationMonth(e.target.value)}>
+                      {monthOpts.map((k) => <option key={k} value={k}>{monthLabel(k)} {currentMonths[k] ? '✓ (já preenchido)' : ''}</option>)}
+                    </select>
+                  </div>
+                  <div className="ls-field">
+                    <span className="ls-field-label">Modo</span>
+                    <div className="ls-csv-mode">
+                      <label className="ls-csv-mode-opt">
+                        <input type="radio" checked={mergeMode === 'replace'} onChange={() => setMergeMode('replace')} />
+                        <span><strong>Substituir</strong> — apaga dados existentes do mês e usa apenas o CSV</span>
+                      </label>
+                      <label className="ls-csv-mode-opt">
+                        <input type="radio" checked={mergeMode === 'merge'} onChange={() => setMergeMode('merge')} />
+                        <span><strong>Mesclar</strong> — soma com o que já está lançado (útil se você importar parcial)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div className="ls-csv-warn">
+                  <AlertTriangle size={14} />
+                  <span>As <strong>6 métricas do Perfil</strong> (Visualizações, Alcance, Interações, Cliques no link, Visitas, Novos seguidores) não vêm do CSV de Anúncios — pegue elas no <strong>Meta Business Suite → Insights</strong> e lance manualmente no edit do mês. O resto vem inteiro daqui.</span>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
+        <div className="ls-modal-foot">
+          {stage === 'preview' && <button className="ls-btn-ghost" onClick={() => setStage('upload')}>← Voltar</button>}
+          <button className="ls-btn-ghost" onClick={onClose}>Cancelar</button>
+          {stage === 'preview' && <button className="ls-btn-primary" onClick={handleImport}>Importar para {monthShort(destinationMonth)}</button>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ============ EDIT MODAL ============
 const EditModal = ({ monthKey, data, onSave, onClose }) => {
   const [draft, setDraft] = useState(JSON.parse(JSON.stringify(data || emptyMonth())));
@@ -778,9 +1272,15 @@ const EditModal = ({ monthKey, data, onSave, onClose }) => {
             ))}
           </section>
           <section className="ls-edit-section">
-            <h3 className="ls-edit-title"><span className="ls-edit-num">IV</span> Feed · Orgânico</h3>
+            <h3 className="ls-edit-title"><span className="ls-edit-num">IV</span> Métricas do Perfil · Orgânico + Pago somados</h3>
+            <p style={{ color: BRAND.textMuted, fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
+              Esses 6 números vêm do <strong style={{ color: BRAND.gold }}>Meta Business Suite → Insights</strong> (Instagram). Captam o desempenho consolidado do perfil no mês — incluindo conteúdo orgânico e impulsionado.
+            </p>
             <div className="ls-edit-grid-3">
-              <Field label="Impressões" type="number" value={draft.perfilNumbers.impressions} onChange={(v) => updateField('perfilNumbers.impressions', parseInt(v) || 0)} />
+              <Field label="Visualizações" type="number" value={draft.perfilNumbers.impressions} onChange={(v) => updateField('perfilNumbers.impressions', parseInt(v) || 0)} />
+              <Field label="Alcance" type="number" value={draft.perfilNumbers.reach || 0} onChange={(v) => updateField('perfilNumbers.reach', parseInt(v) || 0)} />
+              <Field label="Interações com o conteúdo" type="number" value={draft.perfilNumbers.interactions || 0} onChange={(v) => updateField('perfilNumbers.interactions', parseInt(v) || 0)} />
+              <Field label="Cliques no link" type="number" value={draft.perfilNumbers.linkClicks || 0} onChange={(v) => updateField('perfilNumbers.linkClicks', parseInt(v) || 0)} />
               <Field label="Visitas ao perfil" type="number" value={draft.perfilNumbers.visits} onChange={(v) => updateField('perfilNumbers.visits', parseInt(v) || 0)} />
               <Field label="Novos seguidores" type="number" value={draft.perfilNumbers.newFollowers} onChange={(v) => updateField('perfilNumbers.newFollowers', parseInt(v) || 0)} />
             </div>
@@ -850,7 +1350,8 @@ const buildSummaryText = (curMonth, prevMonth, curM, prevM, goals, forecast, rec
   lines.push(`Custo médio/lead: ${fmtBRL(curM.avgCostLeadTotal)}`);
   lines.push('');
   lines.push('📱 *PERFIL INSTAGRAM*');
-  lines.push(`Impressões: ${fmtInt(curM.impressions)}`);
+  lines.push(`Visualizações: ${fmtInt(curM.impressions)}`);
+  if (curM.reach > 0) lines.push(`Alcance: ${fmtInt(curM.reach)}`);
   lines.push(`Visitas: ${fmtInt(curM.visits)}`);
   lines.push(`Novos seguidores: ${fmtInt(curM.newFollowers)}`);
   if (goals) {
@@ -901,19 +1402,21 @@ const generateDemoData = () => {
     '2026-01','2026-02','2026-03','2026-04',
   ];
 
+  // Nomes que seguem o padrão real dos Conjuntos do Meta Ads da Loretto:
+  // o nome da vendedora aparece no fim, e o sistema detecta automaticamente.
   const remAudNames = [
-    'Rem 0-15',                  // Jhennifer
-    'Rem 30-60 · Ialey',         // Ialey
-    'Rem 30-60 · Michelly',      // Michelly
-    'Rem 60-90',                 // Natália
+    '00 - ENGAJAMENT O7D - JHENIFER',     // Jhennifer
+    '01 - ENGAJAMENT 30D - JHENIFER',     // Jhennifer
+    '02 - ENGAJAMENT 60D - IALEY',        // Ialey
+    '03 - ENGAJAMENT 90D - MICHELLY',     // Michelly
   ];
   const frioAudNames = [
-    'Comportamento',  // Jhennifer
-    'Moda',           // Ialey
-    'Autoridade',     // Michelly
-    'Comercial',      // Michelly
-    'Empresários',    // Natália
-    'Saúde',          // Natália
+    '02 - COMPORTAMENTO JHENNIFER',       // Jhennifer
+    '02 - INTERESSES IALEY',              // Ialey
+    '02 - PROFISSOES MICHELLY',           // Michelly
+    '02 - MABERTO MICHELLY',              // Michelly
+    '02 - LOOKALIKE IALEY',               // Ialey
+    '00 - INTERESSES SAPATOS',            // sem vendedora — vai p/ "(sem vendedora)"
   ];
 
   // PRNG determinístico — dados consistentes a cada carregamento
@@ -967,7 +1470,14 @@ const generateDemoData = () => {
       frio: { investment: frioInv, audiences: frioAud, leads: frioLeads },
       perfilTraffic: { campaigns },
       perfilNumbers: {
+        // Visualizações (antes "Impressões" no Meta — renomeado em 2024)
         impressions: Math.round(45000 * factor * wiggle(0.18)),
+        // Alcance — geralmente ~1/4 das visualizações (frequência ~4x)
+        reach: Math.round(11500 * factor * wiggle(0.16)),
+        // Interações com conteúdo — likes/comments/shares/saves combinados
+        interactions: Math.round(1800 * factor * wiggle(0.22)),
+        // Cliques no link da bio + stories swipe-up
+        linkClicks: Math.round(680 * factor * wiggle(0.20)),
         visits: Math.round(2200 * factor * wiggle(0.14)),
         newFollowers: Math.round(220 * factor * wiggle(0.18)),
       },
@@ -978,9 +1488,9 @@ const generateDemoData = () => {
   const apr = result['2026-04'];
   const mar = result['2026-03'];
 
-  // [1] Saturação programada: "Moda" (público da Ialey) sobe ~38% no custo/msg
-  const aprTarget = apr.frio.audiences.find((a) => a.name === 'Moda');
-  const marTarget = mar.frio.audiences.find((a) => a.name === 'Moda');
+  // [1] Saturação programada: "02 - INTERESSES IALEY" sobe ~38% no custo/msg
+  const aprTarget = apr.frio.audiences.find((a) => a.name === '02 - INTERESSES IALEY');
+  const marTarget = mar.frio.audiences.find((a) => a.name === '02 - INTERESSES IALEY');
   if (aprTarget && marTarget) {
     aprTarget.costPerMsg = +(marTarget.costPerMsg * 1.38).toFixed(4);
     aprTarget.messages = Math.round((apr.frio.investment * 0.18) / aprTarget.costPerMsg);
@@ -1006,10 +1516,10 @@ const demoGoals = () => ({
   allocFrio: 35,
   allocPerfil: 15,
   contacts: [
-    { name: 'Jhennifer', remarketing: ['Rem 0-15'],            frio: ['Comportamento'] },
-    { name: 'Ialey',     remarketing: ['Rem 30-60 · Ialey'],   frio: ['Moda'] },
-    { name: 'Michelly',  remarketing: ['Rem 30-60 · Michelly'],frio: ['Autoridade', 'Comercial'] },
-    { name: 'Natália',   remarketing: ['Rem 60-90'],           frio: ['Empresários', 'Saúde'] },
+    { name: 'Jhennifer', keywords: ['JHENNIFER', 'JHENIFER', 'JENIFER'], phones: ['62 8168-8990'] },
+    { name: 'Ialey',     keywords: ['IALEY', 'IALI'],                    phones: ['62 8172-8039'] },
+    { name: 'Michelly',  keywords: ['MICHELLY', 'MICHELY', 'MICHELE'],   phones: ['62 8194-0350'] },
+    { name: 'Natália',   keywords: ['NATALIA', 'NATÁLIA'],               phones: ['62 8200-1112'] },
   ],
 });
 
@@ -1021,34 +1531,103 @@ const App = () => {
   const [compareMonth, setCompareMonth] = useState('2026-03');
   const [editingMonth, setEditingMonth] = useState(null);
   const [showGoals, setShowGoals] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [view, setView] = useState('dashboard');
   const [tvMode, setTvMode] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Status da sincronização com a nuvem: 'connecting' | 'synced' | 'saving' | 'offline' | 'error'
+  const [cloudStatus, setCloudStatus] = useState('connecting');
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const saveTimerRef = useRef(null);
+  const ignoreNextSnapshotRef = useRef(false);
 
+  // ========== LOAD: lê primeiro do localStorage (instantâneo), depois Firestore (autoritativo) ==========
   useEffect(() => {
     (async () => {
+      // 1. Cache local primeiro (carrega rápido se já houver algo salvo)
       try {
         const r = await window.storage.get(STORAGE_KEY);
         if (r?.value) {
           const p = JSON.parse(r.value);
-          setMonths(p.months || {});
+          if (p.months) setMonths(p.months);
           if (p.goals) setGoals({ ...defaultGoals(), ...p.goals });
           if (p.currentMonth) setCurrentMonth(p.currentMonth);
           if (p.compareMonth) setCompareMonth(p.compareMonth);
         }
       } catch (e) {}
-      setLoaded(true);
+
+      // 2. Firestore — fonte autoritativa
+      const db = getFirestore();
+      if (!db) {
+        setCloudStatus('offline');
+        setLoaded(true);
+        return;
+      }
+      const docRef = db.collection(CLOUD_DOC_PATH.collection).doc(CLOUD_DOC_PATH.doc);
+      // Listener em tempo real: se Caio editar de outra máquina, Gregory vê na hora
+      const unsubscribe = docRef.onSnapshot(
+        (snap) => {
+          if (ignoreNextSnapshotRef.current) { ignoreNextSnapshotRef.current = false; return; }
+          if (snap.exists) {
+            const data = snap.data();
+            if (data.months) setMonths(data.months);
+            if (data.goals) setGoals({ ...defaultGoals(), ...data.goals });
+            if (data.currentMonth) setCurrentMonth(data.currentMonth);
+            if (data.compareMonth) setCompareMonth(data.compareMonth);
+            setLastSyncAt(data.updatedAt?.toMillis ? data.updatedAt.toMillis() : Date.now());
+          }
+          setCloudStatus('synced');
+          setLoaded(true);
+        },
+        (err) => {
+          console.error('Firestore snapshot error:', err);
+          setCloudStatus('error');
+          setLoaded(true);
+        }
+      );
+      return () => unsubscribe();
     })();
   }, []);
 
+  // ========== SAVE: salva no localStorage imediato + Firestore com debounce 2s ==========
   useEffect(() => {
     if (!loaded) return;
+    // 1. Cache local imediato (offline-first)
     (async () => { try { await window.storage.set(STORAGE_KEY, JSON.stringify({ months, goals, currentMonth, compareMonth })); } catch (e) {} })();
+
+    // 2. Firestore debounced
+    const db = getFirestore();
+    if (!db) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setCloudStatus('saving');
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        ignoreNextSnapshotRef.current = true; // evita loop ao receber o snapshot da própria escrita
+        await db.collection(CLOUD_DOC_PATH.collection).doc(CLOUD_DOC_PATH.doc).set({
+          months,
+          goals,
+          currentMonth,
+          compareMonth,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        setCloudStatus('synced');
+        setLastSyncAt(Date.now());
+      } catch (e) {
+        console.error('Firestore save failed:', e);
+        setCloudStatus('offline'); // continua funcionando offline com cache local
+      }
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [months, goals, currentMonth, compareMonth, loaded]);
 
   const handleSaveMonth = (key, data) => { setMonths((m) => ({ ...m, [key]: data })); setEditingMonth(null); };
   const handleSaveGoals = (g) => { setGoals(g); setShowGoals(false); };
+  const handleImportCSV = (monthKey, data) => {
+    setMonths((m) => ({ ...m, [monthKey]: data }));
+    setCurrentMonth(monthKey);
+    setShowImport(false);
+  };
   const handleDeleteMonth = (key) => {
     if (!confirm(`Excluir todos os dados de ${monthLabel(key)}?`)) return;
     setMonths((m) => { const n = { ...m }; delete n[key]; return n; });
@@ -1205,6 +1784,57 @@ const App = () => {
         .ls-tool-btn.active { color: ${BRAND.gold}; border-color: ${BRAND.gold}; }
         .ls-tool-demo { color: ${BRAND.greenSoft}; border-color: ${BRAND.greenMid}; }
         .ls-tool-demo:hover { color: ${BRAND.cream}; background: ${BRAND.greenFog}; border-color: ${BRAND.green}; }
+        .ls-tool-import { color: ${BRAND.goldSoft}; border-color: ${BRAND.goldDim}; }
+        .ls-tool-import:hover { color: ${BRAND.bg}; background: ${BRAND.gold}; border-color: ${BRAND.gold}; }
+
+        /* CLOUD STATUS BADGE */
+        .ls-cloud-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid ${BRAND.borderSoft}; border-radius: 12px; font-family: 'Barlow', sans-serif; cursor: default; transition: all 0.25s ease; }
+        .ls-cloud-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .ls-cloud-label { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 500; }
+        .ls-cloud-synced .ls-cloud-dot { background: ${BRAND.positive}; box-shadow: 0 0 6px ${BRAND.positive}; }
+        .ls-cloud-synced .ls-cloud-label { color: ${BRAND.positive}; }
+        .ls-cloud-synced { border-color: rgba(138,162,86,0.35); }
+        .ls-cloud-saving .ls-cloud-dot { background: ${BRAND.gold}; animation: ls-pulse 1s ease-in-out infinite; }
+        .ls-cloud-saving .ls-cloud-label { color: ${BRAND.gold}; }
+        .ls-cloud-saving { border-color: rgba(212,184,94,0.35); }
+        .ls-cloud-connecting .ls-cloud-dot { background: ${BRAND.textMuted}; animation: ls-pulse 1.2s ease-in-out infinite; }
+        .ls-cloud-connecting .ls-cloud-label { color: ${BRAND.textMuted}; }
+        .ls-cloud-offline .ls-cloud-dot { background: ${BRAND.warning}; }
+        .ls-cloud-offline .ls-cloud-label { color: ${BRAND.warning}; }
+        .ls-cloud-offline { border-color: rgba(224,137,42,0.35); }
+        .ls-cloud-error .ls-cloud-dot { background: ${BRAND.negative}; }
+        .ls-cloud-error .ls-cloud-label { color: ${BRAND.negative}; }
+        .ls-cloud-error { border-color: rgba(201,112,112,0.35); }
+        @keyframes ls-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* CSV IMPORT MODAL */
+        .ls-csv-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 50px 30px; border: 2px dashed ${BRAND.borderHair}; border-radius: 4px; background: ${BRAND.bgDeep}; cursor: pointer; transition: all 0.25s; text-align: center; }
+        .ls-csv-drop:hover { border-color: ${BRAND.gold}; background: ${BRAND.goldFog}; }
+        .ls-csv-drop-title { font-family: 'Playfair Display', serif; font-style: italic; font-size: 18px; color: ${BRAND.cream}; font-weight: 500; }
+        .ls-csv-drop-sub { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: ${BRAND.textMuted}; }
+        .ls-csv-error { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-top: 16px; background: rgba(201,112,112,0.12); border: 1px solid rgba(201,112,112,0.4); color: ${BRAND.negative}; font-size: 12px; border-radius: 4px; }
+        .ls-csv-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 16px; background: ${BRAND.bgDeep}; border-radius: 4px; border: 1px solid ${BRAND.borderSoft}; }
+        .ls-csv-summary-item { display: flex; flex-direction: column; gap: 4px; }
+        .ls-csv-summary-label { font-size: 8px; letter-spacing: 0.24em; text-transform: uppercase; color: ${BRAND.textMuted}; }
+        .ls-csv-summary-value { font-family: 'DM Mono', monospace; font-size: 18px; color: ${BRAND.cream}; font-weight: 500; }
+        .ls-csv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .ls-csv-table th { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: ${BRAND.textMuted}; font-weight: 500; padding: 10px 8px; text-align: right; border-bottom: 1px solid ${BRAND.border}; }
+        .ls-csv-table th:first-child, .ls-csv-table th:nth-child(2) { text-align: left; }
+        .ls-csv-table td { padding: 10px 8px; border-bottom: 1px solid ${BRAND.borderSoft}; text-align: right; font-family: 'DM Mono', monospace; }
+        .ls-csv-row-name { font-family: 'Barlow', sans-serif !important; text-align: left !important; color: ${BRAND.text}; font-size: 12px; }
+        .ls-csv-row-skip { opacity: 0.4; }
+        .ls-csv-tags { display: flex; gap: 4px; }
+        .ls-csv-tag { background: none; border: 1px solid ${BRAND.borderSoft}; color: ${BRAND.textMuted}; padding: 4px 8px; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer; font-family: 'Barlow', sans-serif; font-weight: 500; transition: all 0.15s; border-radius: 2px; }
+        .ls-csv-tag:hover { border-color: ${BRAND.gold}; color: ${BRAND.text}; }
+        .ls-csv-tag.active.ls-csv-tag-remarketing { background: ${BRAND.gold}; border-color: ${BRAND.gold}; color: ${BRAND.bg}; }
+        .ls-csv-tag.active.ls-csv-tag-frio { background: ${BRAND.greenSoft}; border-color: ${BRAND.greenSoft}; color: ${BRAND.bg}; }
+        .ls-csv-tag.active.ls-csv-tag-feed { background: ${BRAND.goldSoft}; border-color: ${BRAND.goldSoft}; color: ${BRAND.bg}; }
+        .ls-csv-tag.active.ls-csv-tag-skip { background: ${BRAND.textDim}; border-color: ${BRAND.textDim}; color: ${BRAND.bg}; }
+        .ls-csv-mode { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: ${BRAND.bgDeep}; border: 1px solid ${BRAND.borderSoft}; border-radius: 4px; }
+        .ls-csv-mode-opt { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 12px; line-height: 1.5; color: ${BRAND.text}; }
+        .ls-csv-mode-opt input { margin-top: 3px; accent-color: ${BRAND.gold}; }
+        .ls-csv-warn { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; margin-top: 16px; background: rgba(224,137,42,0.10); border-left: 2px solid ${BRAND.warning}; color: ${BRAND.text}; font-size: 11px; line-height: 1.6; font-family: 'Playfair Display', serif; font-style: italic; border-radius: 0 4px 4px 0; }
+        .ls-csv-warn svg { color: ${BRAND.warning}; flex-shrink: 0; margin-top: 2px; }
 
         /* ORNAMENT */
         .ls-ornament { display: inline-flex; align-items: center; gap: 10px; justify-content: center; }
@@ -1308,10 +1938,19 @@ const App = () => {
         .ls-drill-card { background: linear-gradient(180deg, ${BRAND.surface} 0%, ${BRAND.bg} 100%); border: 1px solid ${BRAND.border}; padding: 26px 28px; position: relative; border-radius: 4px; overflow: hidden; }
         .ls-drill-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, ${BRAND.gold} 25%, ${BRAND.gold} 75%, transparent 100%); z-index: 2; opacity: 0.8; }
 
+        /* MÉTRICAS DE PERFIL · TAXAS DERIVADAS */
+        .ls-rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .ls-rate-item { padding: 10px 0; }
+        .ls-rate-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: ${BRAND.textMuted}; margin-bottom: 6px; font-weight: 500; }
+        .ls-rate-value { font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; margin-bottom: 4px; }
+        .ls-rate-hint { font-family: 'DM Mono', monospace; font-size: 9px; color: ${BRAND.textDim}; letter-spacing: 0.02em; }
+
         /* DISTRIBUIÇÃO POR CONTATO */
-        .ls-contact-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 44px; }
+        .ls-contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 44px; }
         .ls-contact-card { background: linear-gradient(180deg, ${BRAND.surface} 0%, ${BRAND.bg} 100%); border: 1px solid ${BRAND.border}; border-radius: 4px; padding: 22px 20px 18px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         .ls-contact-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 0%, ${BRAND.gold} 25%, ${BRAND.gold} 75%, transparent 100%); z-index: 2; }
+        .ls-contact-card.ls-contact-orphan::before { background: linear-gradient(90deg, transparent 0%, ${BRAND.warning} 25%, ${BRAND.warning} 75%, transparent 100%); }
+        .ls-contact-card.ls-contact-orphan { border-color: rgba(224,137,42,0.35); }
         .ls-contact-name { font-family: 'Playfair Display', serif; font-style: italic; font-size: 22px; color: ${BRAND.gold}; font-weight: 600; text-align: center; margin-bottom: 4px; letter-spacing: 0.02em; }
         .ls-contact-role { text-align: center; font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: ${BRAND.textMuted}; margin-bottom: 16px; font-weight: 500; }
         .ls-contact-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 14px 0; border-top: 1px solid ${BRAND.borderSoft}; border-bottom: 1px solid ${BRAND.borderSoft}; margin-bottom: 14px; }
@@ -1589,9 +2228,25 @@ const App = () => {
           <div className="ls-header-top">
             <div className="ls-header-edition">N° <span>{edicaoNum}</span> · <span>{today.getFullYear()}</span></div>
             <div className="ls-header-tools">
+              <div className={`ls-cloud-badge ls-cloud-${cloudStatus}`} title={
+                cloudStatus === 'synced' ? `Sincronizado com a nuvem${lastSyncAt ? ' · ' + new Date(lastSyncAt).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) : ''}` :
+                cloudStatus === 'saving' ? 'Salvando alterações...' :
+                cloudStatus === 'connecting' ? 'Conectando à nuvem...' :
+                cloudStatus === 'offline' ? 'Sem conexão — usando cache local' :
+                'Erro na sincronização'
+              }>
+                <span className="ls-cloud-dot" />
+                <span className="ls-cloud-label">
+                  {cloudStatus === 'synced' ? 'sincronizado' :
+                   cloudStatus === 'saving' ? 'salvando...' :
+                   cloudStatus === 'connecting' ? 'conectando...' :
+                   cloudStatus === 'offline' ? 'offline' : 'erro'}
+                </span>
+              </div>
               <button className={`ls-nav-btn ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>Painel</button>
               <button className={`ls-nav-btn ${view === 'history' ? 'active' : ''}`} onClick={() => setView('history')}>Histórico</button>
               <button className="ls-tool-btn" onClick={() => setShowGoals(true)} title="Configurar metas"><Settings size={11}/></button>
+              <button className="ls-tool-btn ls-tool-import" onClick={() => setShowImport(true)} title="Importar CSV do Meta Ads"><Upload size={11}/> importar</button>
               <button className="ls-tool-btn" onClick={handlePrint} title="Imprimir / Salvar PDF"><Printer size={11}/></button>
               <button className={`ls-tool-btn ${tvMode ? 'active' : ''}`} onClick={() => setTvMode(true)} title="Modo TV"><Tv size={11}/></button>
               <button className="ls-tool-btn ls-tool-demo" onClick={handleLoadDemo} title="Carregar dados de teste (16 meses)"><FlaskConical size={11}/> demo</button>
@@ -1935,14 +2590,17 @@ const App = () => {
                       {contactPerf.map((c, i) => {
                         const allMsgs = contactPerf.reduce((s, x) => s + x.totalMsgs, 0);
                         const sharePct = allMsgs > 0 ? (c.totalMsgs / allMsgs) * 100 : 0;
-                        const bestCPL = Math.min(...contactPerf.filter(x => x.avgCostPerLead > 0).map(x => x.avgCostPerLead));
-                        const worstCPL = Math.max(...contactPerf.filter(x => x.avgCostPerLead > 0).map(x => x.avgCostPerLead));
-                        const cplClass = c.avgCostPerLead > 0 && c.avgCostPerLead === bestCPL ? 'ls-cpl-good' :
+                        const isOrphan = c.name === '(sem vendedora)';
+                        const validCPLs = contactPerf.filter(x => x.avgCostPerLead > 0 && x.name !== '(sem vendedora)').map(x => x.avgCostPerLead);
+                        const bestCPL = validCPLs.length ? Math.min(...validCPLs) : 0;
+                        const worstCPL = validCPLs.length ? Math.max(...validCPLs) : 0;
+                        const cplClass = isOrphan ? '' :
+                                         c.avgCostPerLead > 0 && c.avgCostPerLead === bestCPL ? 'ls-cpl-good' :
                                          c.avgCostPerLead > 0 && c.avgCostPerLead === worstCPL ? 'ls-cpl-bad' : '';
                         return (
-                          <div key={i} className="ls-contact-card">
-                            <div className="ls-contact-name">{c.name}</div>
-                            <div className="ls-contact-role">{c.audiences.filter(a => !a.missing).length} público(s)</div>
+                          <div key={i} className={`ls-contact-card ${isOrphan ? 'ls-contact-orphan' : ''}`}>
+                            <div className="ls-contact-name" style={isOrphan ? { color: BRAND.warning, fontSize: 16 } : {}}>{c.name}</div>
+                            <div className="ls-contact-role">{c.audiences.length} {c.audiences.length === 1 ? 'conjunto' : 'conjuntos'}</div>
                             <div className="ls-contact-summary">
                               <div className="ls-contact-stat">
                                 <span className="ls-contact-stat-label">mensagens</span>
@@ -1961,26 +2619,22 @@ const App = () => {
                                 <span className="ls-contact-stat-value">{fmtBRL0(c.totalSpent)}</span>
                               </div>
                             </div>
-                            <div className="ls-contact-share-bar"><div className="ls-contact-share-fill" style={{ width: `${sharePct}%` }} /></div>
+                            <div className="ls-contact-share-bar"><div className="ls-contact-share-fill" style={{ width: `${sharePct}%`, background: isOrphan ? BRAND.warning : BRAND.gold }} /></div>
                             <div style={{ fontSize: 9, letterSpacing: '0.24em', textTransform: 'uppercase', color: BRAND.textMuted, marginBottom: 8 }}>{sharePct.toFixed(0)}% do volume de mensagens</div>
                             <div>
-                              {c.audiences.map((a, j) => (
+                              {c.audiences.length === 0 ? (
+                                <div className="ls-contact-missing" style={{ textAlign: 'center', padding: '14px 0' }}>nenhum conjunto ativo para esta vendedora</div>
+                              ) : c.audiences.map((a, j) => (
                                 <div key={j} className="ls-contact-public">
                                   <div className="ls-contact-public-head">
                                     <span className="ls-contact-public-name">{a.name}</span>
                                     <span className={`ls-contact-public-tag ${a.channel === 'remarketing' ? 'rem' : 'frio'}`}>{a.channel === 'remarketing' ? 'rem' : 'frio'}</span>
                                   </div>
-                                  {a.missing ? (
-                                    <div className="ls-contact-missing">não lançado este mês</div>
-                                  ) : (
-                                    <>
-                                      <div className="ls-contact-public-row"><span>Mensagens</span><span>{fmtInt(a.messages)}</span></div>
-                                      <div className="ls-contact-public-row"><span>R$ / msg</span><span>{fmtBRLCusto(a.costPerMsg)}</span></div>
-                                      <div className="ls-contact-public-row"><span>Leads</span><span>{fmtInt(a.leads)}</span></div>
-                                      <div className="ls-contact-public-row"><span>R$ / lead</span><span>{a.costPerLead > 0 ? fmtBRL(a.costPerLead) : '—'}</span></div>
-                                      <div className="ls-contact-public-row"><span>Gasto</span><span>{fmtBRL0(a.spent)}</span></div>
-                                    </>
-                                  )}
+                                  <div className="ls-contact-public-row"><span>Mensagens</span><span>{fmtInt(a.messages)}</span></div>
+                                  <div className="ls-contact-public-row"><span>R$ / msg</span><span>{fmtBRLCusto(a.costPerMsg)}</span></div>
+                                  <div className="ls-contact-public-row"><span>Leads</span><span>{fmtInt(a.leads)}</span></div>
+                                  <div className="ls-contact-public-row"><span>R$ / lead</span><span>{a.costPerLead > 0 ? fmtBRL(a.costPerLead) : '—'}</span></div>
+                                  <div className="ls-contact-public-row"><span>Gasto</span><span>{fmtBRL0(a.spent)}</span></div>
                                 </div>
                               ))}
                             </div>
@@ -1989,7 +2643,7 @@ const App = () => {
                       })}
                     </div>
                     <div className="ls-contact-note">
-                      Os leads por público são <strong style={{ color: BRAND.gold }}>rateados</strong> proporcionalmente ao volume de mensagens dentro de cada canal, pois a estrutura atual de dados ainda guarda leads no total do canal. Para precisão exata, seria preciso lançar leads por público no input mensal.
+                      A vendedora "dona" de cada conjunto é detectada automaticamente pelo nome que aparece no Meta Ads (ex.: "02 - PROFISSOES <strong style={{ color: BRAND.gold }}>JHENNIFER</strong>" → vai pra Jhennifer). Os leads por conjunto são <strong style={{ color: BRAND.gold }}>rateados</strong> proporcionalmente às mensagens dentro de cada canal. Conjuntos sem vendedora no nome aparecem em <strong style={{ color: BRAND.warning }}>"(sem vendedora)"</strong> — bom revisar se algum desses deveria estar atribuído.
                     </div>
                   </>
                 ) : (
@@ -2110,7 +2764,7 @@ const App = () => {
                 {/* ═══ INSTAGRAM — divisor macro ═══ */}
                 <MajorSection
                   title="Instagram"
-                  subtitle={`Impressões · Visitas · Seguidores · ${fmtBRL0(curM.perfilInv)} investidos · ${fmtInt(curM.newFollowers)} novos seguidores`}
+                  subtitle={`${fmtInt(curM.impressions)} visualizações · ${fmtInt(curM.reach)} alcance · ${fmtInt(curM.newFollowers)} novos seguidores · ${fmtBRL0(curM.perfilInv)} investidos`}
                 />
 
                 {/* ═══ Tráfego Pago × Orgânico ═══ */}
@@ -2127,18 +2781,47 @@ const App = () => {
                     <CompareRow label="Custo médio / resultado" current={curM.avgCostPerfilResult} previous={prevM?.avgCostPerfilResult || 0} format="currencyHi" inverse />
                   </div>
                   <div className="ls-channel-card ls-ch-green">
-                    <div className="ls-channel-head"><span className="ls-channel-name">Orgânico</span><span className="ls-channel-tag">alcance natural</span></div>
-                    <CompareRow label="Impressões" current={curM.impressions} previous={prevM?.impressions || 0} />
+                    <div className="ls-channel-head"><span className="ls-channel-name">Perfil · Orgânico + Pago</span><span className="ls-channel-tag">métricas consolidadas</span></div>
+                    <CompareRow label="Visualizações" current={curM.impressions} previous={prevM?.impressions || 0} />
+                    <CompareRow label="Alcance" current={curM.reach} previous={prevM?.reach || 0} />
+                    <CompareRow label="Interações com o conteúdo" current={curM.interactions} previous={prevM?.interactions || 0} />
+                    <CompareRow label="Cliques no link" current={curM.linkClicks} previous={prevM?.linkClicks || 0} />
                     <CompareRow label="Visitas ao perfil" current={curM.visits} previous={prevM?.visits || 0} />
                     <CompareRow label="Novos seguidores" current={curM.newFollowers} previous={prevM?.newFollowers || 0} />
-                    <div style={{ paddingTop: 20, marginTop: 14, borderTop: `1px solid ${BRAND.hairline}` }}>
-                      <div className="ls-compare-label" style={{ marginBottom: 8 }}>Taxa de conversão impressão → visita</div>
-                      <div style={{ fontFamily: 'DM Mono', fontSize: 26, color: BRAND.greenSoft, fontWeight: 500, letterSpacing: '-0.02em' }}>{curM.impressions > 0 ? fmtPct(curM.visits / curM.impressions) : '—'}</div>
-                    </div>
-                    {curM.visits > 0 && (
-                      <div style={{ paddingTop: 12, marginTop: 8 }}>
-                        <div className="ls-compare-label" style={{ marginBottom: 8 }}>Taxa de conversão visita → seguidor</div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 20, color: BRAND.gold, fontWeight: 500, letterSpacing: '-0.02em' }}>{fmtPct(curM.newFollowers / curM.visits)}</div>
+
+                    {(curM.reach > 0 || curM.visits > 0) && (
+                      <div style={{ paddingTop: 18, marginTop: 14, borderTop: `1px solid ${BRAND.hairline}` }}>
+                        <div className="ls-compare-label" style={{ marginBottom: 12, color: BRAND.gold, letterSpacing: '0.22em' }}>Taxas derivadas</div>
+                        <div className="ls-rates-grid">
+                          {curM.reach > 0 && curM.impressions > 0 && (
+                            <div className="ls-rate-item">
+                              <div className="ls-rate-label">Frequência média</div>
+                              <div className="ls-rate-value" style={{ color: BRAND.cream }}>{(curM.impressions / curM.reach).toFixed(1)}<span style={{ fontSize: 14, color: BRAND.textMuted, marginLeft: 4 }}>×</span></div>
+                              <div className="ls-rate-hint">{fmtInt(curM.impressions)} ÷ {fmtInt(curM.reach)}</div>
+                            </div>
+                          )}
+                          {curM.reach > 0 && curM.interactions > 0 && (
+                            <div className="ls-rate-item">
+                              <div className="ls-rate-label">Taxa de engajamento</div>
+                              <div className="ls-rate-value" style={{ color: BRAND.greenSoft }}>{fmtPct(curM.interactions / curM.reach)}</div>
+                              <div className="ls-rate-hint">interações ÷ alcance</div>
+                            </div>
+                          )}
+                          {curM.reach > 0 && curM.linkClicks > 0 && (
+                            <div className="ls-rate-item">
+                              <div className="ls-rate-label">CTR (cliques)</div>
+                              <div className="ls-rate-value" style={{ color: BRAND.greenSoft }}>{fmtPct(curM.linkClicks / curM.reach)}</div>
+                              <div className="ls-rate-hint">cliques ÷ alcance</div>
+                            </div>
+                          )}
+                          {curM.visits > 0 && curM.newFollowers > 0 && (
+                            <div className="ls-rate-item">
+                              <div className="ls-rate-label">Visita → seguidor</div>
+                              <div className="ls-rate-value" style={{ color: BRAND.gold }}>{fmtPct(curM.newFollowers / curM.visits)}</div>
+                              <div className="ls-rate-hint">novos ÷ visitas</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2244,7 +2927,7 @@ const App = () => {
                           <div className="ls-yoy-row" style={{ marginTop: 4, paddingTop: 4, borderTop: `1px solid ${BRAND.border}` }}><span>Variação</span><span><DeltaBadge current={curM.perfilInv} previous={yoyM.perfilInv} inverse format="currency" /></span></div>
                         </div>
                         <div className="ls-yoy-item">
-                          <div className="ls-yoy-label">Impressões</div>
+                          <div className="ls-yoy-label">Visualizações</div>
                           <div className="ls-yoy-row"><span>{monthShort(currentMonth)}</span><span style={{ color: BRAND.cream }}>{fmtInt(curM.impressions)}</span></div>
                           <div className="ls-yoy-row"><span>{monthShort(yearAgoKey(currentMonth))}</span><span>{fmtInt(yoyM.impressions)}</span></div>
                           <div className="ls-yoy-row" style={{ marginTop: 4, paddingTop: 4, borderTop: `1px solid ${BRAND.border}` }}><span>Variação</span><span><DeltaBadge current={curM.impressions} previous={yoyM.impressions} /></span></div>
@@ -2341,6 +3024,7 @@ const App = () => {
 
       {editingMonth && <EditModal monthKey={editingMonth} data={months[editingMonth] || emptyMonth()} onSave={handleSaveMonth} onClose={() => setEditingMonth(null)} />}
       {showGoals && <GoalsModal goals={goals} onSave={handleSaveGoals} onClose={() => setShowGoals(false)} />}
+      {showImport && <ImportCSVModal targetMonth={currentMonth} currentMonths={months} contacts={goals.contacts || []} onSave={handleImportCSV} onClose={() => setShowImport(false)} />}
     </div>
   );
 };
