@@ -1071,25 +1071,55 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
         </div>
         <div className="ls-modal-body">
           {stage === 'upload' && (
-            <section className="ls-edit-section">
-              <h3 className="ls-edit-title"><span className="ls-edit-num">1</span> Selecione o CSV exportado</h3>
-              <p style={{ color: BRAND.textMuted, fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
-                No Gerenciador de Anúncios → exporte o relatório do mês fechado, no nível <strong style={{ color: BRAND.gold }}>Conjunto de Anúncios</strong>, com detalhamento por <strong style={{ color: BRAND.gold }}>Públicos Personalizados</strong>. Colunas mínimas: Conjunto de Anúncios, Valor gasto, Resultados, Custo por resultado.
-              </p>
-              <label className="ls-csv-drop">
-                <Upload size={32} color={BRAND.gold} strokeWidth={1.3} />
-                <div className="ls-csv-drop-title">Clique aqui ou arraste o arquivo .csv</div>
-                <div className="ls-csv-drop-sub">Aceita formato exportado do Gerenciador de Anúncios (PT-BR ou EN)</div>
-                <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
-              </label>
-              {error && <div className="ls-csv-error"><AlertCircle size={14}/> {error}</div>}
-            </section>
+            <>
+              <section className="ls-edit-section ls-import-month-section">
+                <h3 className="ls-edit-title"><span className="ls-edit-num">1</span> Para qual mês é este relatório?</h3>
+                <p style={{ color: BRAND.textMuted, fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
+                  Escolha o mês de referência do CSV antes de fazer o upload. Os meses com <span style={{color: BRAND.positive, fontWeight: 600}}>✓</span> já têm dados lançados.
+                </p>
+                <div className="ls-import-month-grid">
+                  {monthOpts.map((k) => {
+                    const has = !!currentMonths[k];
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        className={`ls-import-month-chip ${destinationMonth === k ? 'active' : ''} ${has ? 'has-data' : ''}`}
+                        onClick={() => setDestinationMonth(k)}
+                      >
+                        <span className="ls-import-month-name">{monthShort(k)}</span>
+                        {has && <Check size={11} className="ls-import-month-check" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                {currentMonths[destinationMonth] && (
+                  <div className="ls-csv-warn" style={{marginTop: 14}}>
+                    <AlertTriangle size={14} />
+                    <span><strong>{monthLabel(destinationMonth)} já tem dados.</strong> Você poderá escolher entre <strong>substituir</strong> (recomendado) ou <strong>mesclar</strong> depois de revisar o CSV.</span>
+                  </div>
+                )}
+              </section>
+              <section className="ls-edit-section">
+                <h3 className="ls-edit-title"><span className="ls-edit-num">2</span> Selecione o CSV exportado</h3>
+                <p style={{ color: BRAND.textMuted, fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
+                  No Gerenciador de Anúncios → exporte o relatório do mês fechado, no nível <strong style={{ color: BRAND.gold }}>Conjunto de Anúncios</strong>, com detalhamento por <strong style={{ color: BRAND.gold }}>Públicos Personalizados</strong>. Colunas mínimas: Conjunto de Anúncios, Valor gasto, Resultados, Custo por resultado.
+                </p>
+                <label className="ls-csv-drop">
+                  <Upload size={32} color={BRAND.gold} strokeWidth={1.3} />
+                  <div className="ls-csv-drop-title">Clique aqui ou arraste o arquivo .csv</div>
+                  <div className="ls-csv-drop-sub">Importando para: <strong style={{color: BRAND.gold}}>{monthLabel(destinationMonth)}</strong></div>
+                  <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
+                </label>
+                {error && <div className="ls-csv-error"><AlertCircle size={14}/> {error}</div>}
+              </section>
+            </>
           )}
 
           {stage === 'preview' && (
             <>
               <section className="ls-edit-section">
-                <h3 className="ls-edit-title"><span className="ls-edit-num">2</span> Revisar classificação</h3>
+                <h3 className="ls-edit-title"><span className="ls-edit-num">3</span> Revisar classificação</h3>
                 <div className="ls-csv-summary">
                   <div className="ls-csv-summary-item">
                     <div className="ls-csv-summary-label">Arquivo</div>
@@ -1158,27 +1188,16 @@ const ImportCSVModal = ({ targetMonth, currentMonths, contacts, onSave, onClose 
               </section>
 
               <section className="ls-edit-section">
-                <h3 className="ls-edit-title"><span className="ls-edit-num">4</span> Destino e modo</h3>
-                <div className="ls-edit-grid-2">
-                  <div className="ls-field">
-                    <span className="ls-field-label">Importar para o mês</span>
-                    <select className="ls-field-input" value={destinationMonth} onChange={(e) => setDestinationMonth(e.target.value)}>
-                      {monthOpts.map((k) => <option key={k} value={k}>{monthLabel(k)} {currentMonths[k] ? '✓ (já preenchido)' : ''}</option>)}
-                    </select>
-                  </div>
-                  <div className="ls-field">
-                    <span className="ls-field-label">Modo</span>
-                    <div className="ls-csv-mode">
-                      <label className="ls-csv-mode-opt">
-                        <input type="radio" checked={mergeMode === 'replace'} onChange={() => setMergeMode('replace')} />
-                        <span><strong>Substituir</strong> — apaga dados existentes do mês e usa apenas o CSV</span>
-                      </label>
-                      <label className="ls-csv-mode-opt">
-                        <input type="radio" checked={mergeMode === 'merge'} onChange={() => setMergeMode('merge')} />
-                        <span><strong>Mesclar</strong> — soma com o que já está lançado (útil se você importar parcial)</span>
-                      </label>
-                    </div>
-                  </div>
+                <h3 className="ls-edit-title"><span className="ls-edit-num">4</span> Modo de importação para <span style={{color: BRAND.gold, fontStyle:'italic'}}>{monthLabel(destinationMonth)}</span></h3>
+                <div className="ls-csv-mode">
+                  <label className="ls-csv-mode-opt">
+                    <input type="radio" checked={mergeMode === 'replace'} onChange={() => setMergeMode('replace')} />
+                    <span><strong>Substituir</strong> — apaga dados existentes do mês e usa apenas o CSV {!currentMonths[destinationMonth] && <em style={{color: BRAND.textMuted}}>(sem dados ainda — qualquer modo dá no mesmo)</em>}</span>
+                  </label>
+                  <label className="ls-csv-mode-opt">
+                    <input type="radio" checked={mergeMode === 'merge'} onChange={() => setMergeMode('merge')} />
+                    <span><strong>Mesclar</strong> — soma com o que já está lançado (útil se você importar parcial)</span>
+                  </label>
                 </div>
                 <div className="ls-csv-warn">
                   <AlertTriangle size={14} />
@@ -1532,6 +1551,30 @@ const PROFILES = [
   { id: 'caio',    name: 'Caio Vinicius',  role: 'Tráfego Pago' },
 ];
 
+// ============ LOADING SCREEN ============
+const LoadingScreen = () => (
+  <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 22, background: BRAND.bg, fontFamily: 'Barlow, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse at 15% 10%, rgba(212,184,94,0.06) 0%, transparent 45%), radial-gradient(ellipse at 85% 90%, rgba(74,92,42,0.05) 0%, transparent 45%)` }} />
+    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+      <div style={{ fontFamily: 'Playfair Display, serif', fontStyle: 'italic', fontSize: 42, fontWeight: 600, color: BRAND.gold, letterSpacing: '0.04em' }}>Loretto Scarpa</div>
+      <div style={{ width: 280, height: 1, background: `linear-gradient(90deg, transparent, ${BRAND.gold}, transparent)` }} />
+      <div style={{ fontSize: 10, letterSpacing: '0.36em', textTransform: 'uppercase', color: BRAND.textMuted, fontWeight: 500 }}>Dashboard de Tráfego Pago</div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 18 }}>
+        <div style={{ width: 6, height: 6, background: BRAND.gold, borderRadius: '50%', animation: 'ls-loading-dot 1.4s ease-in-out 0s infinite' }} />
+        <div style={{ width: 6, height: 6, background: BRAND.gold, borderRadius: '50%', animation: 'ls-loading-dot 1.4s ease-in-out 0.2s infinite' }} />
+        <div style={{ width: 6, height: 6, background: BRAND.gold, borderRadius: '50%', animation: 'ls-loading-dot 1.4s ease-in-out 0.4s infinite' }} />
+      </div>
+      <div style={{ fontSize: 9, letterSpacing: '0.32em', textTransform: 'uppercase', color: BRAND.textDim, fontWeight: 400, marginTop: 4 }}>Carregando dados</div>
+    </div>
+    <style>{`
+      @keyframes ls-loading-dot {
+        0%, 100% { opacity: 0.2; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+    `}</style>
+  </div>
+);
+
 console.log('[LS-DASH] 3/5 About to define App component');
 const App = () => {
   const [months, setMonths] = useState({});
@@ -1566,6 +1609,12 @@ const App = () => {
   // ========== LOAD: lê primeiro do localStorage (instantâneo), depois Firestore (autoritativo) ==========
   useEffect(() => {
     let unsubscribe = null;
+    // Safety timer: se em 5s o Firestore não responder, libera a tela mesmo assim
+    const safetyTimer = setTimeout(() => {
+      console.warn('[LS-DASH] Firestore load timeout — proceeding with cache only');
+      setLoaded(true);
+      setCloudStatus('offline');
+    }, 5000);
     (async () => {
       // 1. Cache local primeiro (carrega rápido se já houver algo salvo)
       try {
@@ -1582,6 +1631,7 @@ const App = () => {
       // 2. Firestore — fonte autoritativa
       const db = getFirestore();
       if (!db) {
+        clearTimeout(safetyTimer);
         setCloudStatus('offline');
         setLoaded(true);
         return;
@@ -1601,16 +1651,18 @@ const App = () => {
             setLastSyncAt(data.updatedAt?.toMillis ? data.updatedAt.toMillis() : Date.now());
           }
           setCloudStatus('synced');
+          clearTimeout(safetyTimer);
           setLoaded(true);
         },
         (err) => {
           console.error('Firestore snapshot error:', err);
           setCloudStatus('error');
+          clearTimeout(safetyTimer);
           setLoaded(true);
         }
       );
     })();
-    return () => { if (unsubscribe) unsubscribe(); };
+    return () => { clearTimeout(safetyTimer); if (unsubscribe) unsubscribe(); };
   }, []);
 
   // ========== SAVE: salva no localStorage imediato + Firestore com debounce 2s ==========
@@ -1769,7 +1821,7 @@ const App = () => {
   };
   const handlePrint = () => window.print();
 
-  if (!loaded) return <div style={{ background: BRAND.bg, color: BRAND.gold, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Playfair Display, serif', fontStyle: 'italic' }}>Loretto Scarpa</div>;
+  if (!loaded) return <LoadingScreen />;
 
   const today = new Date();
   const edicaoNum = String(today.getMonth() + 1).padStart(2, '0');
@@ -1836,6 +1888,19 @@ const App = () => {
 
         /* CSV IMPORT MODAL */
         .ls-csv-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 50px 30px; border: 2px dashed ${BRAND.borderHair}; border-radius: 4px; background: ${BRAND.bgDeep}; cursor: pointer; transition: all 0.25s; text-align: center; }
+
+        /* IMPORT — MONTH SELECTOR GRID */
+        .ls-import-month-section { background: ${BRAND.bgDeep}; border-radius: 6px; padding: 22px 24px; border: 1px solid ${BRAND.borderSoft}; }
+        .ls-import-month-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+        .ls-import-month-chip { position: relative; padding: 12px 8px; border: 1px solid ${BRAND.border}; background: ${BRAND.surface}; color: ${BRAND.textMuted}; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border-radius: 3px; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .ls-import-month-chip:hover { border-color: ${BRAND.goldDim}; color: ${BRAND.cream}; }
+        .ls-import-month-chip.has-data { color: ${BRAND.positive}; border-color: rgba(138,162,86,0.3); }
+        .ls-import-month-chip.has-data:hover { color: ${BRAND.positive}; border-color: ${BRAND.positive}; }
+        .ls-import-month-chip.active { border-color: ${BRAND.gold}; background: rgba(212,184,94,0.1); color: ${BRAND.gold}; box-shadow: inset 0 0 0 1px ${BRAND.gold}; }
+        .ls-import-month-chip.active.has-data { color: ${BRAND.gold}; }
+        .ls-import-month-name { font-weight: 600; }
+        .ls-import-month-check { color: ${BRAND.positive}; }
+        .ls-import-month-chip.active .ls-import-month-check { color: ${BRAND.gold}; }
         .ls-csv-drop:hover { border-color: ${BRAND.gold}; background: ${BRAND.goldFog}; }
         .ls-csv-drop-title { font-family: 'Playfair Display', serif; font-style: italic; font-size: 18px; color: ${BRAND.cream}; font-weight: 500; }
         .ls-csv-drop-sub { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: ${BRAND.textMuted}; }
