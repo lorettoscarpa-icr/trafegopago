@@ -52,9 +52,11 @@
     </div>
   </div>
 
-  <script type="text/babel" data-presets="react">
+  <script type="text/babel" data-presets="env,react" data-type="module">
         // ═══ React + Recharts globals ═══
+        console.log('[LS-DASH] 1/5 Script started executing');
         const { useState, useEffect, useMemo, useRef } = React;
+        console.log('[LS-DASH] 2/5 React hooks destructured');
         const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } = Recharts;
 
         // ═══ STORAGE SHIM (localStorage com mesma API que window.storage) ═══
@@ -1592,6 +1594,7 @@ const ProfileSelectScreen = ({ onSelect, busy, error }) => (
   </div>
 );
 
+console.log('[LS-DASH] 3/5 About to define App component');
 const App = () => {
   const [months, setMonths] = useState({});
   const [goals, setGoals] = useState(defaultGoals());
@@ -3186,9 +3189,17 @@ const App = () => {
 };
 
         // ═══ Mount ═══
-        const rootEl = document.getElementById('root');
-        const root = ReactDOM.createRoot(rootEl);
-        root.render(React.createElement(App));
+        console.log('[LS-DASH] 4/5 About to mount React');
+        try {
+          const rootEl = document.getElementById('root');
+          if (!rootEl) throw new Error('#root element not found');
+          const root = ReactDOM.createRoot(rootEl);
+          root.render(React.createElement(App));
+          console.log('[LS-DASH] 5/5 React mount called successfully');
+        } catch (e) {
+          console.error('[LS-DASH] MOUNT FAILED:', e);
+          document.getElementById('root').innerHTML = '<div style="color:#d4b85e;font-family:Playfair Display,serif;font-style:italic;font-size:24px;text-align:center;padding:80px 20px;">Erro ao montar o dashboard:<br/><br/><span style="font-size:14px;color:#f2eee0;font-family:monospace;font-style:normal">' + e.message + '</span></div>';
+        }
   </script>
 </body>
 </html>
