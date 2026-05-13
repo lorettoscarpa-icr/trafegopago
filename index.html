@@ -1628,11 +1628,26 @@ const App = () => {
         if (p) setCurrentProfile(p);
       }
     } catch (e) {}
-    return auth.onAuthStateChanged((u) => {
+    // Timeout de segurança: se em 3s o auth não responder (cache corrompido, network suspenso),
+    // libera a tela pra o usuário poder ao menos ver a seleção de perfil
+    let safetyTimer = setTimeout(() => {
+      console.warn('Auth state callback timeout — proceeding to profile select');
+      setAuthChecking(false);
+    }, 3000);
+    const unsub = auth.onAuthStateChanged((u) => {
+      clearTimeout(safetyTimer);
       setUser(u);
       setAuthChecking(false);
       setLoginError('');
+    }, (err) => {
+      clearTimeout(safetyTimer);
+      console.error('Auth state error:', err);
+      setAuthChecking(false);
     });
+    return () => {
+      clearTimeout(safetyTimer);
+      unsub();
+    };
   }, []);
 
   const handleProfileSelect = async (profile) => {
