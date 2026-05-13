@@ -1607,10 +1607,9 @@ const App = () => {
   const [tvMode, setTvMode] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Auth state
+  // Auth state — sem gate de "authChecking": se não há user, mostra ProfileSelectScreen direto
   const [user, setUser] = useState(null);
   const [currentProfile, setCurrentProfile] = useState(null);
-  const [authChecking, setAuthChecking] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
   // Status da sincronização com a nuvem: 'connecting' | 'synced' | 'saving' | 'offline' | 'error'
@@ -1621,36 +1620,38 @@ const App = () => {
 
   // ========== AUTH: observa estado de login + restaura perfil escolhido ==========
   useEffect(() => {
-    const auth = getAuth();
-    if (!auth) { setAuthChecking(false); return; }
-    // Restaura perfil escolhido do localStorage (pra não ter que clicar de novo a cada reload)
+    console.log('[LS-DASH] useEffect-auth: starting');
+    // Restaura perfil escolhido do localStorage (visualmente — auth real vem depois)
     try {
       const savedId = localStorage.getItem('ls_profile_id');
       if (savedId) {
         const p = PROFILES.find((x) => x.id === savedId);
-        if (p) setCurrentProfile(p);
+        if (p) { setCurrentProfile(p); console.log('[LS-DASH] restored profile from localStorage:', p.id); }
       }
-    } catch (e) {}
-    // Timeout de segurança: se em 3s o auth não responder (cache corrompido, network suspenso),
-    // libera a tela pra o usuário poder ao menos ver a seleção de perfil
-    let safetyTimer = setTimeout(() => {
-      console.warn('Auth state callback timeout — proceeding to profile select');
-      setAuthChecking(false);
-    }, 3000);
-    const unsub = auth.onAuthStateChanged((u) => {
-      clearTimeout(safetyTimer);
-      setUser(u);
-      setAuthChecking(false);
-      setLoginError('');
-    }, (err) => {
-      clearTimeout(safetyTimer);
-      console.error('Auth state error:', err);
-      setAuthChecking(false);
-    });
-    return () => {
-      clearTimeout(safetyTimer);
-      unsub();
-    };
+    } catch (e) { console.warn('[LS-DASH] localStorage read failed:', e); }
+    // Tenta pegar o auth — se falhar, deixa user=null (ProfileSelectScreen aparece)
+    let auth = null;
+    try {
+      auth = getAuth();
+      console.log('[LS-DASH] getAuth() returned:', auth ? 'object' : 'null');
+    } catch (e) {
+      console.error('[LS-DASH] getAuth() threw:', e);
+      return;
+    }
+    if (!auth) return;
+    console.log('[LS-DASH] Registering onAuthStateChanged listener');
+    const unsub = auth.onAuthStateChanged(
+      (u) => {
+        console.log('[LS-DASH] auth callback fired, user:', u ? u.uid.substring(0, 8) + '...' : 'null');
+        setUser(u);
+        setLoginError('');
+      },
+      (err) => {
+        console.error('[LS-DASH] auth state error:', err);
+      }
+    );
+    console.log('[LS-DASH] listener registered, useEffect done');
+    return () => unsub();
   }, []);
 
   const handleProfileSelect = async (profile) => {
@@ -1897,8 +1898,7 @@ const App = () => {
   const today = new Date();
   const edicaoNum = String(today.getMonth() + 1).padStart(2, '0');
 
-  // Gates de autenticação — antes de renderizar o dashboard
-  if (authChecking) return <SplashScreen message="Verificando acesso..." />;
+  // Gate único: se não há user autenticado, mostra ProfileSelectScreen (sem splash bloqueante)
   if (!user) return <ProfileSelectScreen onSelect={handleProfileSelect} error={loginError} busy={loginBusy} />;
 
   return (
